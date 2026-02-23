@@ -47,8 +47,11 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
-                            <mainClass>com.arian.bot.Main</mainClass>
-                            <finalName>ArianBot</finalName>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>com.arian.bot.Main</mainClass>
+                                </transformer>
+                            </transformers>
                         </configuration>
                     </execution>
                 </executions>
