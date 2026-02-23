@@ -131,7 +131,7 @@ public class SocialCommand {
                 case "hit" -> "se han golpeado";
                 default -> "han interactuado";
             };
-            return author.getEffectiveName() + " y " + target.getEffectiveName() + " " + actionPast + " **" + count + "** vez" + (count == 1 ? "" : "es") + ".";
+            return author.getEffectiveName() + " y " + target.getEffectiveName() + " " + actionPast + " **" + count + "** " + (count == 1 ? "vez" : "veces") + ".";
         } else {
             String actionPast = switch (actionKey) {
                 case "hug" -> "abrazos";
