@@ -1,6 +1,7 @@
 
 package com.arian.bot;
 
+import com.arian.bot.listeners.ButtonListener;
 import com.arian.bot.listeners.PrefixCommandListener;
 import com.arian.bot.listeners.SlashCommandListener;
 import net.dv8tion.jda.api.JDA;
@@ -18,11 +19,14 @@ public class Main {
             throw new IllegalStateException("Falta la variable de entorno DISCORD_TOKEN");
         }
 
+        DataBaseManager.initialize();
+
         JDA jda = JDABuilder.createDefault(token)
                 .enableIntents(GatewayIntent.MESSAGE_CONTENT) // necesario para leer mensajes
                 .addEventListeners(
                         new SlashCommandListener(),
-                        new PrefixCommandListener()
+                        new PrefixCommandListener(),
+                        new ButtonListener()
                 )
                 .build();
 
@@ -43,4 +47,5 @@ public class Main {
 
         System.out.println("Arian está en línea como " + jda.getSelfUser().getAsTag());
     }
+
 }

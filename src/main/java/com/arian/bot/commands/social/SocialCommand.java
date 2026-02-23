@@ -1,9 +1,13 @@
 package com.arian.bot.commands.social;
 
+import com.arian.bot.DataBaseManager;
+import com.arian.bot.DataBaseManager;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
+import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
+import net.dv8tion.jda.api.interactions.components.buttons.Button;
 
 import java.awt.Color;
 import java.util.List;
@@ -13,72 +17,69 @@ public class SocialCommand {
 
     private static final Random RANDOM = new Random();
 
-    // Método que construye y envía el embed, es el corazón de todos los comandos sociales
-    private static void sendEmbed(
-            String authorName,
-            String authorAvatar,
-            String targetName,
-            String action,
-            String emoji,
-            Color color,
-            List<String> images,
-            Object channel
-    ) {
-        String imageUrl = images.get(RANDOM.nextInt(images.size()));
-
-        EmbedBuilder embed = new EmbedBuilder()
-                .setTitle(emoji + " " + authorName + " " + action + " " + targetName + "!")
-                .setImage(imageUrl)
-                .setColor(color)
-                .setFooter("Powered by Arian 🐾");
-
-        if (channel instanceof net.dv8tion.jda.api.entities.channel.middleman.MessageChannel messageChannel) {
-            messageChannel.sendMessageEmbeds(embed.build()).queue();
-        }
-    }
-
-    // Maneja el comando cuando viene de prefix (a!hug @usuario)
     public static void handlePrefix(
             MessageReceivedEvent event,
             String action,
+            String actionKey,
             String emoji,
             Color color,
-            List<String> images
+            List<String> images,
+            boolean isPair,
+            boolean hasReturnButton,
+            String returnButtonLabel
     ) {
-        // Verificar que mencionaron a alguien
         if (event.getMessage().getMentions().getMembers().isEmpty()) {
-            event.getChannel().sendMessage("⚠️ Debes mencionar a alguien. Ejemplo: `a!" + action + " @usuario`").queue();
+            event.getChannel().sendMessage("⚠️ Debes mencionar a alguien. Ejemplo: `a!" + actionKey + " @usuario`").queue();
             return;
         }
 
         Member author = event.getMember();
         Member target = event.getMessage().getMentions().getMembers().get(0);
 
-        // Evitar que se hagan la acción a sí mismos
         if (author.getId().equals(target.getId())) {
             event.getChannel().sendMessage("⚠️ ¡No puedes hacerte eso a ti mismo!").queue();
             return;
         }
 
-        sendEmbed(
-                author.getEffectiveName(),
-                author.getEffectiveAvatarUrl(),
-                target.getEffectiveName(),
-                action,
-                emoji,
-                color,
-                images,
-                event.getChannel()
-        );
+        String imageUrl = images.get(RANDOM.nextInt(images.size()));
+        int count;
+
+        if (isPair) {
+            count = DataBaseManager.incrementPairCount(author.getId(), target.getId(), actionKey);
+        } else {
+            count = DataBaseManager.incrementReceivedCount(target.getId(), actionKey);
+        }
+
+        String countText = buildCountText(isPair, actionKey, author, target, count);
+
+        EmbedBuilder embed = new EmbedBuilder()
+                .setTitle(emoji + " " + author.getEffectiveName() + " " + action + " " + target.getEffectiveName() + "!")
+                .setDescription(countText)
+                .setImage(imageUrl)
+                .setColor(color)
+                .setFooter("Powered by Arian 🐾");
+
+        if (hasReturnButton) {
+            // El ID del botón lleva la info necesaria para saber quién puede usarlo
+            String buttonId = actionKey + ":" + target.getId() + ":" + author.getId();
+            event.getChannel().sendMessageEmbeds(embed.build())
+                    .addActionRow(Button.primary(buttonId, returnButtonLabel))
+                    .queue();
+        } else {
+            event.getChannel().sendMessageEmbeds(embed.build()).queue();
+        }
     }
 
-    // Maneja el comando cuando viene de slash (/hug @usuario)
     public static void handleSlash(
             SlashCommandInteractionEvent event,
             String action,
+            String actionKey,
             String emoji,
             Color color,
-            List<String> images
+            List<String> images,
+            boolean isPair,
+            boolean hasReturnButton,
+            String returnButtonLabel
     ) {
         Member author = event.getMember();
         Member target = event.getOption("usuario").getAsMember();
@@ -95,12 +96,90 @@ public class SocialCommand {
 
         event.deferReply().queue();
 
+        String imageUrl = images.get(RANDOM.nextInt(images.size()));
+        int count;
+
+        if (isPair) {
+            count = DataBaseManager.incrementPairCount(author.getId(), target.getId(), actionKey);
+        } else {
+            count = DataBaseManager.incrementReceivedCount(target.getId(), actionKey);
+        }
+
+        String countText = buildCountText(isPair, actionKey, author, target, count);
+
         EmbedBuilder embed = new EmbedBuilder()
                 .setTitle(emoji + " " + author.getEffectiveName() + " " + action + " " + target.getEffectiveName() + "!")
-                .setImage(images.get(new Random().nextInt(images.size())))
+                .setDescription(countText)
+                .setImage(imageUrl)
                 .setColor(color)
                 .setFooter("Powered by Arian 🐾");
 
-        event.getHook().sendMessageEmbeds(embed.build()).queue();
+        if (hasReturnButton) {
+            String buttonId = actionKey + ":" + target.getId() + ":" + author.getId();
+            event.getHook().sendMessageEmbeds(embed.build())
+                    .addActionRow(Button.primary(buttonId, returnButtonLabel))
+                    .queue();
+        } else {
+            event.getHook().sendMessageEmbeds(embed.build()).queue();
+        }
     }
+
+    private static String buildCountText(boolean isPair, String actionKey, Member author, Member target, int count) {
+        if (isPair) {
+            String actionPast = switch (actionKey) {
+                case "kiss" -> "se han besado";
+                case "hit" -> "se han golpeado";
+                default -> "han interactuado";
+            };
+            return author.getEffectiveName() + " y " + target.getEffectiveName() + " " + actionPast + " **" + count + "** vez" + (count == 1 ? "" : "es") + ".";
+        } else {
+            String actionPast = switch (actionKey) {
+                case "hug" -> "abrazos";
+                case "pat" -> "pats";
+                default -> "interacciones";
+            };
+            return target.getEffectiveName() + " ha recibido **" + count + "** " + actionPast + ".";
+        }
+    }
+    public static void handleButton(
+            ButtonInteractionEvent event,
+            String action,
+            String actionKey,
+            String emoji,
+            Color color,
+            List<String> images,
+            boolean isPair,
+            boolean hasReturnButton,
+            String returnButtonLabel,
+            Member target
+    ) {
+        Member author = event.getMember();
+        String imageUrl = images.get(RANDOM.nextInt(images.size()));
+        int count;
+
+        if (isPair) {
+            count = DataBaseManager.incrementPairCount(author.getId(), target.getId(), actionKey);
+        } else {
+            count = DataBaseManager.incrementReceivedCount(target.getId(), actionKey);
+        }
+
+        String countText = buildCountText(isPair, actionKey, author, target, count);
+
+        EmbedBuilder embed = new EmbedBuilder()
+                .setTitle(emoji + " " + author.getEffectiveName() + " " + action + " " + target.getEffectiveName() + "!")
+                .setDescription(countText)
+                .setImage(imageUrl)
+                .setColor(color)
+                .setFooter("Powered by Arian 🐾");
+
+        if (hasReturnButton) {
+            String buttonId = actionKey + ":" + target.getId() + ":" + author.getId();
+            event.reply("").addEmbeds(embed.build())
+                    .addActionRow(Button.primary(buttonId, returnButtonLabel))
+                    .queue();
+        } else {
+            event.replyEmbeds(embed.build()).queue();
+        }
+    }
+
 }
