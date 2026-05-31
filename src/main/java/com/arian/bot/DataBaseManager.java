@@ -38,10 +38,65 @@ public class DataBaseManager {
                 );
                 """;
 
+        String channelsTable = """
+                CREATE TABLE IF NOT EXISTS arian_channels (
+                    channel_id TEXT PRIMARY KEY
+                );
+                """;
+
         try (Statement stmt = connection.createStatement()) {
             stmt.execute(pairTable);
             stmt.execute(receivedTable);
+            stmt.execute(channelsTable);
         }
+    }
+
+    /** Activa o desactiva un canal para Arian. Devuelve true si quedó activado, false si se desactivó. */
+    public static boolean toggleArianChannel(String channelId) {
+        try {
+            if (isArianChannelEnabled(channelId)) {
+                try (PreparedStatement ps = connection.prepareStatement(
+                        "DELETE FROM arian_channels WHERE channel_id = ?")) {
+                    ps.setString(1, channelId);
+                    ps.executeUpdate();
+                }
+                return false;
+            } else {
+                try (PreparedStatement ps = connection.prepareStatement(
+                        "INSERT OR IGNORE INTO arian_channels (channel_id) VALUES (?)")) {
+                    ps.setString(1, channelId);
+                    ps.executeUpdate();
+                }
+                return true;
+            }
+        } catch (SQLException e) {
+            System.err.println("❌ Error en toggleArianChannel: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /** Devuelve true si Arian puede hablar en ese canal. */
+    public static boolean isArianChannelEnabled(String channelId) {
+        try (PreparedStatement ps = connection.prepareStatement(
+                "SELECT 1 FROM arian_channels WHERE channel_id = ?")) {
+            ps.setString(1, channelId);
+            return ps.executeQuery().next();
+        } catch (SQLException e) {
+            System.err.println("❌ Error en isArianChannelEnabled: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /** Devuelve la lista de IDs de canales donde Arian está activo. */
+    public static java.util.List<String> getArianChannels() {
+        java.util.List<String> list = new java.util.ArrayList<>();
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT channel_id FROM arian_channels")) {
+            while (rs.next()) list.add(rs.getString("channel_id"));
+        } catch (SQLException e) {
+            System.err.println("❌ Error en getArianChannels: " + e.getMessage());
+        }
+        return list;
     }
 
     // Incrementa y devuelve el contador entre dos personas (para kiss y hit)

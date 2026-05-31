@@ -1,5 +1,6 @@
 package com.arian.bot.listeners;
 
+import com.arian.bot.DataBaseManager;
 import com.arian.bot.Main;
 import com.arian.bot.ai.ArianAI;
 import com.arian.bot.ai.ArianResponse;
@@ -27,6 +28,9 @@ public class ArianListener extends ListenerAdapter {
     // Probabilidad base de intentar responder a un mensaje cualquiera (0.0 - 1.0)
     private static final double BASE_CHANCE = 0.22;
 
+    // Probabilidad de aplicar la reacción con emoji aunque Claude la sugiera (para que sea ocasional)
+    private static final double REACT_CHANCE = 0.20;
+
     // Cooldown mínimo entre respuestas de Arian en el mismo canal (en ms)
     private static final long COOLDOWN_MS = 25_000;
 
@@ -46,6 +50,9 @@ public class ArianListener extends ListenerAdapter {
 
         String channelId = event.getChannel().getId();
         String authorName = event.getAuthor().getEffectiveName();
+
+        // Ignorar si el canal no está activado para Arian
+        if (!DataBaseManager.isArianChannelEnabled(channelId)) return;
 
         // Guardar el mensaje en el historial del canal
         ChannelContext.addMessage(channelId, authorName, content);
@@ -78,9 +85,9 @@ public class ArianListener extends ListenerAdapter {
 
             ChannelContext.markReplied(channelId);
 
-            if (response.hasEmoji()) {
+            if (response.hasEmoji() && random.nextDouble() < REACT_CHANCE) {
                 message.addReaction(net.dv8tion.jda.api.entities.emoji.Emoji.fromUnicode(response.emoji)).queue(
-                        null, err -> {} // ignorar si el emoji no es válido
+                        null, err -> {}
                 );
             }
             if (response.hasText()) {
