@@ -2,6 +2,7 @@ package com.arian.bot.listeners;
 
 import com.arian.bot.Main;
 import com.arian.bot.ai.ArianAI;
+import com.arian.bot.ai.ArianResponse;
 import com.arian.bot.ai.ChannelContext;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
@@ -24,7 +25,7 @@ import java.util.concurrent.Executors;
 public class ArianListener extends ListenerAdapter {
 
     // Probabilidad base de intentar responder a un mensaje cualquiera (0.0 - 1.0)
-    private static final double BASE_CHANCE = 0.35;
+    private static final double BASE_CHANCE = 0.22;
 
     // Cooldown mínimo entre respuestas de Arian en el mismo canal (en ms)
     private static final long COOLDOWN_MS = 25_000;
@@ -70,13 +71,21 @@ public class ArianListener extends ListenerAdapter {
 
         // Hacer la llamada a la API en un hilo separado
         String history = ChannelContext.getFormattedHistory(channelId);
+        var message = event.getMessage();
         executor.submit(() -> {
-            String response = ArianAI.generateResponse(history, content, authorName);
+            ArianResponse response = ArianAI.generateResponse(history, content, authorName);
             if (response == null) return;
 
-            // Registrar cooldown y enviar
             ChannelContext.markReplied(channelId);
-            event.getChannel().sendMessage(response).queue();
+
+            if (response.hasEmoji()) {
+                message.addReaction(net.dv8tion.jda.api.entities.emoji.Emoji.fromUnicode(response.emoji)).queue(
+                        null, err -> {} // ignorar si el emoji no es válido
+                );
+            }
+            if (response.hasText()) {
+                event.getChannel().sendMessage(response.text).queue();
+            }
         });
     }
 
