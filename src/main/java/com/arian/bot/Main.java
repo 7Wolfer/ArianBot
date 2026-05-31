@@ -1,6 +1,7 @@
 
 package com.arian.bot;
 
+import com.arian.bot.listeners.ArianListener;
 import com.arian.bot.listeners.ButtonListener;
 import com.arian.bot.listeners.PrefixCommandListener;
 import com.arian.bot.listeners.SlashCommandListener;
@@ -22,11 +23,12 @@ public class Main {
         DataBaseManager.initialize();
 
         JDA jda = JDABuilder.createDefault(token)
-                .enableIntents(GatewayIntent.MESSAGE_CONTENT) // necesario para leer mensajes
+                .enableIntents(GatewayIntent.MESSAGE_CONTENT, GatewayIntent.GUILD_MESSAGES, GatewayIntent.GUILD_MEMBERS)
                 .addEventListeners(
                         new SlashCommandListener(),
                         new PrefixCommandListener(),
-                        new ButtonListener()
+                        new ButtonListener(),
+                        new ArianListener()
                 )
                 .build();
 
