@@ -24,7 +24,7 @@ import java.util.concurrent.Executors;
 public class ArianListener extends ListenerAdapter {
 
     // Probabilidad base de intentar responder a un mensaje cualquiera (0.0 - 1.0)
-    private static final double BASE_CHANCE = 0.15;
+    private static final double BASE_CHANCE = 0.35;
 
     // Cooldown mínimo entre respuestas de Arian en el mismo canal (en ms)
     private static final long COOLDOWN_MS = 25_000;
@@ -51,13 +51,14 @@ public class ArianListener extends ListenerAdapter {
 
         // Determinar si Arian debe intentar responder
         boolean mentionado = event.getMessage().getMentions().isMentioned(event.getJDA().getSelfUser());
+        boolean nombreMencionado = content.toLowerCase().contains("arian");
         boolean esRespuestaArian = event.getMessage().getMessageReference() != null
                 && isReplyToArian(event);
 
         boolean intentarResponder;
         if (esRespuestaArian) {
             intentarResponder = true;
-        } else if (mentionado) {
+        } else if (mentionado || nombreMencionado) {
             intentarResponder = random.nextDouble() < 0.80;
         } else {
             // Solo intentar si el cooldown pasó
