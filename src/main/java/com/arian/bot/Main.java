@@ -44,7 +44,9 @@ public class Main {
                 Commands.slash("hit", "Golpea a alguien")
                         .addOption(OptionType.USER, "usuario", "¿A quién quieres golpear?", true),
                 Commands.slash("pat", "Dale un pat a alguien")
-                        .addOption(OptionType.USER, "usuario", "¿A quién quieres hacerle un pat?", true)
+                        .addOption(OptionType.USER, "usuario", "¿A quién quieres hacerle un pat?", true),
+                Commands.slash("channel", "Activa o desactiva un canal para que Arian hable en él")
+                        .addOption(OptionType.CHANNEL, "canal", "Canal a activar/desactivar (vacío para listar)", false)
         ).queue();
 
         System.out.println("Arian está en línea como " + jda.getSelfUser().getAsTag());
