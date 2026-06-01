@@ -79,6 +79,7 @@ public class ArianListener extends ListenerAdapter {
         // Hacer la llamada a la API en un hilo separado
         String history = ChannelContext.getFormattedHistory(channelId);
         var message = event.getMessage();
+        boolean responderConReply = mentionado || esRespuestaArian;
         executor.submit(() -> {
             ArianResponse response = ArianAI.generateResponse(history, content, authorName);
             if (response == null) return;
@@ -91,7 +92,12 @@ public class ArianListener extends ListenerAdapter {
                 );
             }
             if (response.hasText()) {
-                event.getChannel().sendMessage(response.text).queue();
+                if (responderConReply) {
+                    // Responde citando el mensaje pero sin hacer ping
+                    message.reply(response.text).mentionRepliedUser(false).queue();
+                } else {
+                    event.getChannel().sendMessage(response.text).queue();
+                }
             }
         });
     }
