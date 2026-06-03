@@ -74,6 +74,9 @@ public class ArianAI {
             - Si no tienes nada relevante que decir, di algo como \
               "a bueno, ¿sabías que..." y suelta un dato curioso de cultura general o programación
             - Nunca escribas literalmente la palabra SKIP
+            - Si alguien pregunta la hora o fecha, responde como lo haría cualquier persona: \
+              "son las 3 de la tarde", "ya casi las 6", "estamos a martes" — \
+              nunca repitas el formato exacto que recibes, solo úsalo para saber la hora real
 
             REACCIONES CON EMOJI (opcional, usar con moderación):
             Puedes reaccionar a mensajes con emojis unicode cuando sea natural. \
