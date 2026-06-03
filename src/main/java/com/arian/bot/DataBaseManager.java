@@ -44,10 +44,48 @@ public class DataBaseManager {
                 );
                 """;
 
+        String memoryTable = """
+                CREATE TABLE IF NOT EXISTS user_memory (
+                    user_id  TEXT PRIMARY KEY,
+                    username TEXT,
+                    memory   TEXT
+                );
+                """;
+
         try (Statement stmt = connection.createStatement()) {
             stmt.execute(pairTable);
             stmt.execute(receivedTable);
             stmt.execute(channelsTable);
+            stmt.execute(memoryTable);
+        }
+    }
+
+    /** Devuelve la memoria que Arian tiene de un usuario, o null si no hay ninguna. */
+    public static String getUserMemory(String userId) {
+        try (PreparedStatement ps = connection.prepareStatement(
+                "SELECT memory FROM user_memory WHERE user_id = ?")) {
+            ps.setString(1, userId);
+            ResultSet rs = ps.executeQuery();
+            return rs.next() ? rs.getString("memory") : null;
+        } catch (SQLException e) {
+            System.err.println("❌ Error en getUserMemory: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /** Guarda o actualiza la memoria de un usuario. */
+    public static void updateUserMemory(String userId, String username, String memory) {
+        try (PreparedStatement ps = connection.prepareStatement("""
+                INSERT INTO user_memory (user_id, username, memory)
+                VALUES (?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET username = excluded.username, memory = excluded.memory
+                """)) {
+            ps.setString(1, userId);
+            ps.setString(2, username);
+            ps.setString(3, memory);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            System.err.println("❌ Error en updateUserMemory: " + e.getMessage());
         }
     }
 

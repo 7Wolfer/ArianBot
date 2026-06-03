@@ -78,13 +78,20 @@ public class ArianListener extends ListenerAdapter {
 
         // Hacer la llamada a la API en un hilo separado
         String history = ChannelContext.getFormattedHistory(channelId);
+        String userId   = event.getAuthor().getId();
+        String userMemory = DataBaseManager.getUserMemory(userId);
         var message = event.getMessage();
         boolean responderConReply = mentionado || esRespuestaArian;
         executor.submit(() -> {
-            ArianResponse response = ArianAI.generateResponse(history, content, authorName);
+            ArianResponse response = ArianAI.generateResponse(history, content, authorName, userMemory);
             if (response == null) return;
 
             ChannelContext.markReplied(channelId);
+
+            // Guardar memoria si Claude detectó algo nuevo
+            if (response.hasMemoryUpdate()) {
+                DataBaseManager.updateUserMemory(userId, authorName, response.memoryUpdate);
+            }
 
             if (response.hasEmoji() && random.nextDouble() < REACT_CHANCE) {
                 message.addReaction(net.dv8tion.jda.api.entities.emoji.Emoji.fromUnicode(response.emoji)).queue(
@@ -93,7 +100,6 @@ public class ArianListener extends ListenerAdapter {
             }
             if (response.hasText()) {
                 if (responderConReply) {
-                    // Responde citando el mensaje pero sin hacer ping
                     message.reply(response.text).mentionRepliedUser(false).queue();
                 } else {
                     event.getChannel().sendMessage(response.text).queue();
