@@ -8,6 +8,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 
 /**
  * Hace la llamada a la API de Claude para que Arian decida qué decir.
@@ -112,11 +115,16 @@ public class ArianAI {
             return null;
         }
 
+        String horaActual = ZonedDateTime.now(ZoneId.of("America/Mexico_City"))
+                .format(DateTimeFormatter.ofPattern("EEEE d 'de' MMMM yyyy, HH:mm", java.util.Locale.forLanguageTag("es-MX")));
+
         String memorySection = (userMemory != null && !userMemory.isBlank())
                 ? "\nLo que recuerdas de %s: %s\n".formatted(authorName, userMemory)
                 : "";
 
         String userContent = """
+                Hora actual en México: %s
+
                 Historial reciente del canal:
                 %s
                 %s
@@ -124,7 +132,7 @@ public class ArianAI {
                 %s
 
                 ¿Tienes algo que decir o con qué reaccionar? Si no, responde solo: SKIP
-                """.formatted(channelHistory, memorySection, authorName, newMessage);
+                """.formatted(horaActual, channelHistory, memorySection, authorName, newMessage);
 
         JSONObject body = new JSONObject();
         body.put("model", MODEL);

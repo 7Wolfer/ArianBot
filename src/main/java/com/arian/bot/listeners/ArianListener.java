@@ -26,7 +26,7 @@ import java.util.concurrent.Executors;
 public class ArianListener extends ListenerAdapter {
 
     // Probabilidad base de intentar responder a un mensaje cualquiera (0.0 - 1.0)
-    private static final double BASE_CHANCE = 0.22;
+    private static final double BASE_CHANCE = 0.15;
 
     // Probabilidad de aplicar la reacción con emoji aunque Claude la sugiera (para que sea ocasional)
     private static final double REACT_CHANCE = 0.20;
