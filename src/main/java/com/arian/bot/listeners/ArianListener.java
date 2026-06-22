@@ -18,7 +18,7 @@ import java.util.concurrent.Executors;
  * Lógica de activación:
  *  - Siempre: si alguien responde directamente a un mensaje de Arian
  *  - 80%: si alguien menciona a Arian (@Arian)
- *  - 15%: en cualquier otro mensaje (azar), respetando un cooldown por canal
+ *  - 10%: en cualquier otro mensaje (azar), respetando un cooldown por canal
  *
  * Después de decidir intentarlo, se le pregunta a Claude si tiene algo que decir.
  * Si Claude responde "SKIP", Arian no habla.
@@ -26,7 +26,7 @@ import java.util.concurrent.Executors;
 public class ArianListener extends ListenerAdapter {
 
     // Probabilidad base de intentar responder a un mensaje cualquiera (0.0 - 1.0)
-    private static final double BASE_CHANCE = 0.15;
+    private static final double BASE_CHANCE = 0.10;
 
     // Probabilidad de aplicar la reacción con emoji aunque Claude la sugiera (para que sea ocasional)
     private static final double REACT_CHANCE = 0.20;
