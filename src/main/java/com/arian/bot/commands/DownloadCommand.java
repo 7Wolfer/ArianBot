@@ -8,7 +8,9 @@ import net.dv8tion.jda.api.utils.FileUpload;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -95,16 +97,25 @@ public class DownloadCommand {
             tempDir = Files.createTempDirectory("arian-dl-");
             File log = tempDir.resolve("_ytdlp.log").toFile();
 
-            ProcessBuilder pb = new ProcessBuilder(
+            List<String> cmd = new ArrayList<>(List.of(
                     "yt-dlp",
                     "--no-playlist",
                     "--no-warnings",
                     "--max-filesize", String.valueOf(maxBytes),
                     "--merge-output-format", "mp4",
                     "-f", "best[filesize<=" + maxBytes + "]/best[filesize_approx<=" + maxBytes + "]/best",
-                    "-o", tempDir.resolve("%(id)s.%(ext)s").toString(),
-                    url
-            );
+                    "-o", tempDir.resolve("%(id)s.%(ext)s").toString()
+            ));
+            // Si existe ~/yt-cookies.txt, se usa para sitios que requieren sesión
+            // (p. ej. YouTube, que bloquea las IPs de VPS sin autenticación).
+            File cookies = new File(System.getProperty("user.home"), "yt-cookies.txt");
+            if (cookies.isFile()) {
+                cmd.add("--cookies");
+                cmd.add(cookies.getAbsolutePath());
+            }
+            cmd.add(url);
+
+            ProcessBuilder pb = new ProcessBuilder(cmd);
             pb.redirectErrorStream(true);
             pb.redirectOutput(log); // evita bloqueos por buffer de pipe lleno en descargas largas
 
