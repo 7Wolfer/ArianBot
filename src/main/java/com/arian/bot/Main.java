@@ -46,7 +46,9 @@ public class Main {
                 Commands.slash("pat", "Dale un pat a alguien")
                         .addOption(OptionType.USER, "usuario", "¿A quién quieres hacerle un pat?", true),
                 Commands.slash("channel", "Activa o desactiva un canal para que Arian hable en él")
-                        .addOption(OptionType.CHANNEL, "canal", "Canal a activar/desactivar (vacío para listar)", false)
+                        .addOption(OptionType.CHANNEL, "canal", "Canal a activar/desactivar (vacío para listar)", false),
+                Commands.slash("download", "Descarga un video de TikTok, Instagram, YouTube, etc.")
+                        .addOption(OptionType.STRING, "url", "El link del video a descargar", true)
         ).queue();
 
         System.out.println("Arian está en línea como " + jda.getSelfUser().getAsTag());

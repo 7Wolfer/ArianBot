@@ -1,6 +1,7 @@
 package com.arian.bot.listeners;
 
 import com.arian.bot.commands.ChannelCommand;
+import com.arian.bot.commands.DownloadCommand;
 import com.arian.bot.commands.PingCommand;
 import com.arian.bot.commands.social.HitCommand;
 import com.arian.bot.commands.social.HugCommand;
@@ -20,6 +21,7 @@ public class SlashCommandListener extends ListenerAdapter {
             case "hit" -> HitCommand.handleSlash(event);
             case "pat" -> PatCommand.handleSlash(event);
             case "channel" -> ChannelCommand.handleSlash(event);
+            case "download" -> DownloadCommand.handleSlash(event);
         }
     }
 }
