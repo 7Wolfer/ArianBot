@@ -1,9 +1,11 @@
 package com.arian.bot.commands;
 
+import com.arian.bot.news.NewsScheduler;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 public class OwnerCommand {
 
@@ -41,5 +43,13 @@ public class OwnerCommand {
             success -> event.getChannel().sendMessage("Salí del servidor **" + nombre + "**.").queue(),
             error   -> event.getChannel().sendMessage("No pude salir: " + error.getMessage()).queue()
         );
+    }
+
+    /** Fuerza un envío inmediato del digest de noticias, para probarlo sin esperar a martes/viernes. */
+    public static void handleTestNews(MessageReceivedEvent event) {
+        if (!event.getAuthor().getId().equals(OWNER_ID)) return;
+
+        event.getChannel().sendMessage("Armando el digest de noticias, un momento...").queue();
+        CompletableFuture.runAsync(() -> NewsScheduler.runDigest(event.getJDA()));
     }
 }

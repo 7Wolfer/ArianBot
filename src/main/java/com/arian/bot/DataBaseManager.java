@@ -52,11 +52,27 @@ public class DataBaseManager {
                 );
                 """;
 
+        String newsChannelTable = """
+                CREATE TABLE IF NOT EXISTS news_channel (
+                    guild_id   TEXT PRIMARY KEY,
+                    channel_id TEXT NOT NULL
+                );
+                """;
+
+        String postedNewsTable = """
+                CREATE TABLE IF NOT EXISTS posted_news (
+                    item_id   TEXT PRIMARY KEY,
+                    posted_at TEXT
+                );
+                """;
+
         try (Statement stmt = connection.createStatement()) {
             stmt.execute(pairTable);
             stmt.execute(receivedTable);
             stmt.execute(channelsTable);
             stmt.execute(memoryTable);
+            stmt.execute(newsChannelTable);
+            stmt.execute(postedNewsTable);
         }
     }
 
@@ -135,6 +151,69 @@ public class DataBaseManager {
             System.err.println("❌ Error en getArianChannels: " + e.getMessage());
         }
         return list;
+    }
+
+    /** Configura el canal donde Arian postea el digest de noticias en un servidor. */
+    public static void setNewsChannel(String guildId, String channelId) {
+        try (PreparedStatement ps = connection.prepareStatement("""
+                INSERT INTO news_channel (guild_id, channel_id) VALUES (?, ?)
+                ON CONFLICT(guild_id) DO UPDATE SET channel_id = excluded.channel_id
+                """)) {
+            ps.setString(1, guildId);
+            ps.setString(2, channelId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            System.err.println("❌ Error en setNewsChannel: " + e.getMessage());
+        }
+    }
+
+    /** Devuelve el canal de noticias configurado para un servidor, o null si no hay ninguno. */
+    public static String getNewsChannel(String guildId) {
+        try (PreparedStatement ps = connection.prepareStatement(
+                "SELECT channel_id FROM news_channel WHERE guild_id = ?")) {
+            ps.setString(1, guildId);
+            ResultSet rs = ps.executeQuery();
+            return rs.next() ? rs.getString("channel_id") : null;
+        } catch (SQLException e) {
+            System.err.println("❌ Error en getNewsChannel: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /** Devuelve los IDs de todos los canales de noticias configurados (en todos los servidores). */
+    public static java.util.List<String> getAllNewsChannels() {
+        java.util.List<String> list = new java.util.ArrayList<>();
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT channel_id FROM news_channel")) {
+            while (rs.next()) list.add(rs.getString("channel_id"));
+        } catch (SQLException e) {
+            System.err.println("❌ Error en getAllNewsChannels: " + e.getMessage());
+        }
+        return list;
+    }
+
+    /** Devuelve true si esa noticia (por su ID único) ya fue posteada antes. */
+    public static boolean isNewsPosted(String itemId) {
+        try (PreparedStatement ps = connection.prepareStatement(
+                "SELECT 1 FROM posted_news WHERE item_id = ?")) {
+            ps.setString(1, itemId);
+            return ps.executeQuery().next();
+        } catch (SQLException e) {
+            System.err.println("❌ Error en isNewsPosted: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /** Marca una noticia como ya posteada. */
+    public static void markNewsPosted(String itemId) {
+        try (PreparedStatement ps = connection.prepareStatement(
+                "INSERT OR IGNORE INTO posted_news (item_id, posted_at) VALUES (?, ?)")) {
+            ps.setString(1, itemId);
+            ps.setString(2, java.time.Instant.now().toString());
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            System.err.println("❌ Error en markNewsPosted: " + e.getMessage());
+        }
     }
 
     // Incrementa y devuelve el contador entre dos personas (para kiss y hit)

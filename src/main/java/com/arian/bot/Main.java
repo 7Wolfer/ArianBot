@@ -5,6 +5,7 @@ import com.arian.bot.listeners.ArianListener;
 import com.arian.bot.listeners.ButtonListener;
 import com.arian.bot.listeners.PrefixCommandListener;
 import com.arian.bot.listeners.SlashCommandListener;
+import com.arian.bot.news.NewsScheduler;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
@@ -48,8 +49,12 @@ public class Main {
                 Commands.slash("channel", "Activa o desactiva un canal para que Arian hable en él")
                         .addOption(OptionType.CHANNEL, "canal", "Canal a activar/desactivar (vacío para listar)", false),
                 Commands.slash("download", "Descarga un video de TikTok, Instagram, YouTube, etc.")
-                        .addOption(OptionType.STRING, "url", "El link del video a descargar", true)
+                        .addOption(OptionType.STRING, "url", "El link del video a descargar", true),
+                Commands.slash("newschannel", "Configura el canal donde Arian postea noticias de programación y neurociencia")
+                        .addOption(OptionType.CHANNEL, "canal", "Canal para las noticias (vacío para ver el actual)", false)
         ).queue();
+
+        NewsScheduler.start(jda);
 
         System.out.println("Arian está en línea como " + jda.getSelfUser().getAsTag());
     }

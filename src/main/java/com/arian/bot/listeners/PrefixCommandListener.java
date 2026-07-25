@@ -3,6 +3,7 @@ package com.arian.bot.listeners;
 import com.arian.bot.Main;
 import com.arian.bot.commands.ChannelCommand;
 import com.arian.bot.commands.DownloadCommand;
+import com.arian.bot.commands.NewsChannelCommand;
 import com.arian.bot.commands.OwnerCommand;
 import com.arian.bot.commands.PingCommand;
 import com.arian.bot.commands.social.HitCommand;
@@ -36,8 +37,10 @@ public class PrefixCommandListener extends ListenerAdapter {
             case "pat" -> PatCommand.handlePrefix(event);
             case "channel" -> ChannelCommand.handlePrefix(event, args);
             case "download", "dl", "descargar" -> DownloadCommand.handlePrefix(event, args);
+            case "newschannel" -> NewsChannelCommand.handlePrefix(event, args);
             case "guilds"  -> OwnerCommand.handleGuilds(event);
             case "leave"   -> OwnerCommand.handleLeave(event, args);
+            case "testnews" -> OwnerCommand.handleTestNews(event);
         }
     }
 }
