@@ -13,11 +13,18 @@ public class NewsPoster {
     private static final Color COLOR_PROGRAMACION = new Color(88, 166, 255);
     private static final Color COLOR_NEUROCIENCIA = new Color(163, 113, 247);
 
-    public static void post(TextChannel channel, List<NewsItem> items) {
+    /** Envía el digest al canal. Devuelve true si se mandó correctamente (bloquea hasta confirmarlo). */
+    public static boolean post(TextChannel channel, List<NewsItem> items) {
         List<MessageEmbed> embeds = items.stream().map(NewsPoster::buildEmbed).toList();
-        channel.sendMessage("📰 **Resumen de la semana — Programación y Neurociencia**")
-                .addEmbeds(embeds)
-                .queue();
+        try {
+            channel.sendMessage("📰 **Resumen de la semana — Programación y Neurociencia**")
+                    .addEmbeds(embeds)
+                    .complete();
+            return true;
+        } catch (Exception e) {
+            System.err.println("❌ Error al postear noticias en el canal " + channel.getId() + ": " + e.getMessage());
+            return false;
+        }
     }
 
     private static MessageEmbed buildEmbed(NewsItem item) {

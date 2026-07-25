@@ -50,14 +50,31 @@ public class NewsScheduler {
 
     /** Arma y postea el digest ya mismo, en todos los canales de noticias configurados. */
     public static void runDigest(JDA jda) {
+        List<String> channelIds = DataBaseManager.getAllNewsChannels();
+        if (channelIds.isEmpty()) {
+            System.out.println("⚠️ No hay ningún canal de noticias configurado (usa /newschannel), no se buscaron noticias.");
+            return;
+        }
+
         List<NewsItem> items = NewsFetcher.buildDigest();
         if (items.isEmpty()) {
             System.out.println("⚠️ No hay noticias nuevas para postear.");
             return;
         }
-        for (String channelId : DataBaseManager.getAllNewsChannels()) {
+
+        boolean sentToAtLeastOne = false;
+        for (String channelId : channelIds) {
             TextChannel channel = jda.getTextChannelById(channelId);
-            if (channel != null) NewsPoster.post(channel, items);
+            if (channel == null) continue;
+            if (NewsPoster.post(channel, items)) sentToAtLeastOne = true;
+        }
+
+        // Solo se marcan como posteadas si de verdad llegaron a algún canal;
+        // así no se pierden noticias por un canal mal configurado o un fallo al enviar.
+        if (sentToAtLeastOne) {
+            NewsFetcher.markPosted(items);
+        } else {
+            System.err.println("❌ No se pudo postear el digest en ningún canal; las noticias no se marcan como posteadas.");
         }
     }
 }

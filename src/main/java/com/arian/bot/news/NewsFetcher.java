@@ -16,10 +16,14 @@ public class NewsFetcher {
         digest.addAll(pickUnposted(PubMedSource.fetch(10), 1));
         digest.addAll(pickUnposted(ArxivSource.fetch("cat:q-bio.NC", "Neurociencia", 10), 1));
 
-        for (NewsItem item : digest) {
+        return digest;
+    }
+
+    /** Marca noticias como posteadas. Llamar solo después de confirmar que se enviaron a algún canal. */
+    public static void markPosted(List<NewsItem> items) {
+        for (NewsItem item : items) {
             DataBaseManager.markNewsPosted(item.id());
         }
-        return digest;
     }
 
     private static List<NewsItem> pickUnposted(List<NewsItem> candidates, int need) {
