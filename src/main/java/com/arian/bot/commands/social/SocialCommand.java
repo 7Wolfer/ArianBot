@@ -7,7 +7,8 @@ import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
+import net.dv8tion.jda.api.components.actionrow.ActionRow;
+import net.dv8tion.jda.api.components.buttons.Button;
 
 import java.awt.Color;
 import java.util.List;
@@ -63,7 +64,7 @@ public class SocialCommand {
             // El ID del botón lleva la info necesaria para saber quién puede usarlo
             String buttonId = actionKey + ":" + target.getId() + ":" + author.getId();
             event.getChannel().sendMessageEmbeds(embed.build())
-                    .addActionRow(Button.primary(buttonId, returnButtonLabel))
+                    .addComponents(ActionRow.of(Button.primary(buttonId, returnButtonLabel)))
                     .queue();
         } else {
             event.getChannel().sendMessageEmbeds(embed.build()).queue();
@@ -117,7 +118,7 @@ public class SocialCommand {
         if (hasReturnButton) {
             String buttonId = actionKey + ":" + target.getId() + ":" + author.getId();
             event.getHook().sendMessageEmbeds(embed.build())
-                    .addActionRow(Button.primary(buttonId, returnButtonLabel))
+                    .addComponents(ActionRow.of(Button.primary(buttonId, returnButtonLabel)))
                     .queue();
         } else {
             event.getHook().sendMessageEmbeds(embed.build()).queue();
@@ -175,7 +176,7 @@ public class SocialCommand {
         if (hasReturnButton) {
             String buttonId = actionKey + ":" + target.getId() + ":" + author.getId();
             event.reply("").addEmbeds(embed.build())
-                    .addActionRow(Button.primary(buttonId, returnButtonLabel))
+                    .addComponents(ActionRow.of(Button.primary(buttonId, returnButtonLabel)))
                     .queue();
         } else {
             event.replyEmbeds(embed.build()).queue();
