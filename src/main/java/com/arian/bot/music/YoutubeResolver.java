@@ -12,6 +12,8 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -27,6 +29,19 @@ import java.util.concurrent.TimeUnit;
 public class YoutubeResolver {
 
     private static final int TIMEOUT_SECONDS = 30;
+
+    // YouTube/googlevideo empieza a devolver 403 si Lavalink pide varias URLs de audio en rápida
+    // sucesión desde la misma IP; se espacían las peticiones para evitar el bloqueo por rate-limit.
+    private static final Duration MIN_INTERVAL = Duration.ofSeconds(4);
+    private static volatile Instant lastLoad = Instant.EPOCH;
+
+    private static synchronized void respectRateLimit() throws InterruptedException {
+        Duration elapsed = Duration.between(lastLoad, Instant.now());
+        if (elapsed.compareTo(MIN_INTERVAL) < 0) {
+            Thread.sleep(MIN_INTERVAL.minus(elapsed).toMillis());
+        }
+        lastLoad = Instant.now();
+    }
 
     public static boolean isPlaylistUrl(String query) {
         return query.contains("list=") && !query.contains("watch?v=");
@@ -100,6 +115,7 @@ public class YoutubeResolver {
 
     private static Track loadAudioTrack(Link link, String url, String title) {
         try {
+            respectRateLimit();
             LavalinkLoadResult result = link.loadItem(url).block(java.time.Duration.ofSeconds(TIMEOUT_SECONDS));
             if (result instanceof TrackLoaded loaded) {
                 return loaded.getTrack();
