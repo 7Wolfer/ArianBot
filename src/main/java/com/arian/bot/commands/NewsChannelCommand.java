@@ -2,12 +2,11 @@ package com.arian.bot.commands;
 
 import com.arian.bot.DataBaseManager;
 import net.dv8tion.jda.api.Permission;
-import net.dv8tion.jda.api.entities.Guild;
-import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 
-/** Configura el canal donde Arian postea el digest de noticias (programación y neurociencia). */
+/** Configura el canal donde Arian postea el digest de noticias (programación y neurociencia). Acepta canales de texto o de anuncios. */
 public class NewsChannelCommand {
 
     public static void handlePrefix(MessageReceivedEvent event, String[] args) {
@@ -20,7 +19,7 @@ public class NewsChannelCommand {
             String current = DataBaseManager.getNewsChannel(event.getGuild().getId());
             event.getChannel().sendMessage(current == null
                     ? "No hay canal de noticias configurado. Úsalo así: `a!newschannel #canal`"
-                    : "El canal de noticias actual es " + resolveChannelName(event.getGuild(), current) + ".").queue();
+                    : "El canal de noticias actual es " + mention(current) + ".").queue();
             return;
         }
 
@@ -31,7 +30,7 @@ public class NewsChannelCommand {
         }
 
         DataBaseManager.setNewsChannel(event.getGuild().getId(), channelId);
-        event.getChannel().sendMessage("Listo, ahora posteo noticias en " + resolveChannelName(event.getGuild(), channelId) + ".").queue();
+        event.getChannel().sendMessage("Listo, ahora posteo noticias en " + mention(channelId) + ".").queue();
     }
 
     public static void handleSlash(SlashCommandInteractionEvent event) {
@@ -45,17 +44,23 @@ public class NewsChannelCommand {
             String current = DataBaseManager.getNewsChannel(event.getGuild().getId());
             event.reply(current == null
                     ? "No hay canal de noticias configurado todavía."
-                    : "El canal de noticias actual es " + resolveChannelName(event.getGuild(), current) + ".").setEphemeral(true).queue();
+                    : "El canal de noticias actual es " + mention(current) + ".").setEphemeral(true).queue();
             return;
         }
 
-        TextChannel canal = option.getAsChannel().asTextChannel();
+        GuildMessageChannel canal;
+        try {
+            canal = option.getAsChannel().asGuildMessageChannel();
+        } catch (IllegalStateException e) {
+            event.reply("Ese canal no sirve para postear mensajes, elige un canal de texto o de anuncios.").setEphemeral(true).queue();
+            return;
+        }
+
         DataBaseManager.setNewsChannel(event.getGuild().getId(), canal.getId());
-        event.reply("Listo, ahora posteo noticias en " + canal.getAsMention() + ".").setEphemeral(true).queue();
+        event.reply("Listo, ahora posteo noticias en " + mention(canal.getId()) + ".").setEphemeral(true).queue();
     }
 
-    private static String resolveChannelName(Guild guild, String id) {
-        TextChannel ch = guild.getTextChannelById(id);
-        return ch != null ? ch.getAsMention() : "<#" + id + ">";
+    private static String mention(String channelId) {
+        return "<#" + channelId + ">";
     }
 }

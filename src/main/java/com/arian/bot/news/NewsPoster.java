@@ -2,19 +2,19 @@ package com.arian.bot.news;
 
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.MessageEmbed;
-import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel;
 
 import java.awt.Color;
 import java.util.List;
 
-/** Construye y envía el embed del digest de noticias a un canal. */
+/** Construye y envía el embed del digest de noticias a un canal (de texto o de anuncios). */
 public class NewsPoster {
 
     private static final Color COLOR_PROGRAMACION = new Color(88, 166, 255);
     private static final Color COLOR_NEUROCIENCIA = new Color(163, 113, 247);
 
     /** Envía el digest al canal. Devuelve true si se mandó correctamente (bloquea hasta confirmarlo). */
-    public static boolean post(TextChannel channel, List<NewsItem> items) {
+    public static boolean post(GuildMessageChannel channel, List<NewsItem> items) {
         List<MessageEmbed> embeds = items.stream().map(NewsPoster::buildEmbed).toList();
         try {
             channel.sendMessage("📰 **Resumen de la semana — Programación y Neurociencia**")

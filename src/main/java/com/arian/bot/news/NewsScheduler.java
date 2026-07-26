@@ -2,7 +2,7 @@ package com.arian.bot.news;
 
 import com.arian.bot.DataBaseManager;
 import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel;
 
 import java.time.DayOfWeek;
 import java.time.Duration;
@@ -64,7 +64,8 @@ public class NewsScheduler {
 
         boolean sentToAtLeastOne = false;
         for (String channelId : channelIds) {
-            TextChannel channel = jda.getTextChannelById(channelId);
+            // Acepta tanto canales de texto normales como canales de anuncios.
+            GuildMessageChannel channel = jda.getChannelById(GuildMessageChannel.class, channelId);
             if (channel == null) continue;
             if (NewsPoster.post(channel, items)) sentToAtLeastOne = true;
         }
