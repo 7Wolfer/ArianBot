@@ -87,6 +87,7 @@ public class PlayCommand {
         AudioManager audioManager = guild.getAudioManager();
         if (audioManager.getSendingHandler() == null) {
             audioManager.setSendingHandler(music.sendHandler);
+            audioManager.setConnectionListener(new com.arian.bot.music.VoiceConnectionListener(guild.getId()));
         }
         if (!audioManager.isConnected()) {
             audioManager.openAudioConnection(channel);
