@@ -113,6 +113,13 @@ public class DownloadCommand {
                 cmd.add("--cookies");
                 cmd.add(cookies.getAbsolutePath());
             }
+            // yt-dlp necesita un runtime de JS para resolver la firma de varios videos de YouTube;
+            // se pasa la ruta explícita porque ~/.deno/bin no está en el PATH del proceso del bot.
+            File deno = new File(System.getProperty("user.home"), ".deno/bin/deno");
+            if (deno.isFile()) {
+                cmd.add("--js-runtimes");
+                cmd.add("deno:" + deno.getAbsolutePath());
+            }
             cmd.add(url);
 
             ProcessBuilder pb = new ProcessBuilder(cmd);
