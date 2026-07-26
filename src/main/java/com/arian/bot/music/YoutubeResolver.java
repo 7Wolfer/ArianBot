@@ -149,6 +149,10 @@ public class YoutubeResolver {
             cmd.add("--js-runtimes");
             cmd.add("deno:" + deno.getAbsolutePath());
         }
+        // Evita que yt-dlp baje el HTML completo del watch page y los configs extra;
+        // no se necesitan para solo sacar la URL directa del audio, y ahorra ~1s por canción.
+        cmd.add("--extractor-args");
+        cmd.add("youtube:skip=webpage,configs");
         return cmd;
     }
 
