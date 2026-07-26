@@ -64,9 +64,11 @@ public class SpotifyResolver {
         String token = getAccessToken();
         if (token == null) return tracks;
 
+        // El endpoint /playlists/{id}/tracks está deprecado por Spotify; el reemplazo es /items,
+        // que anida el track real bajo "item" (no "track") y puede incluir episodios de podcast.
         String next = type.equals("album")
                 ? "https://api.spotify.com/v1/albums/" + id + "/tracks?limit=" + Math.min(limit, 50)
-                : "https://api.spotify.com/v1/playlists/" + id + "/tracks?limit=" + Math.min(limit, 50);
+                : "https://api.spotify.com/v1/playlists/" + id + "/items?limit=" + Math.min(limit, 50);
 
         while (next != null && tracks.size() < limit) {
             JSONObject page = getJson(next, token);
@@ -75,7 +77,10 @@ public class SpotifyResolver {
             if (items == null) break;
             for (int i = 0; i < items.length() && tracks.size() < limit; i++) {
                 JSONObject item = items.getJSONObject(i);
-                JSONObject track = type.equals("album") ? item : item.optJSONObject("track");
+                JSONObject track = type.equals("album") ? item : item.optJSONObject("item");
+                if (track != null && !type.equals("album") && !"track".equals(track.optString("type"))) {
+                    continue; // saltar episodios de podcast
+                }
                 QueuedTrack qt = trackToQueuedTrack(track, requestedBy);
                 if (qt != null) tracks.add(qt);
             }
