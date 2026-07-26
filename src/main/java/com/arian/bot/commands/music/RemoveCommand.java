@@ -1,8 +1,8 @@
 package com.arian.bot.commands.music;
 
-import com.arian.bot.music.GuildMusicManager;
 import com.arian.bot.music.MusicManagers;
 import com.arian.bot.music.QueuedTrack;
+import com.arian.bot.music.TrackScheduler;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
@@ -26,9 +26,9 @@ public class RemoveCommand {
 
     private static String remove(String guildId, int position) {
         if (position < 1) return "Dame un número de posición válido (mira `/queue` para los números).";
-        GuildMusicManager music = MusicManagers.getIfExists(guildId);
-        if (music == null) return "No hay ninguna cola activa.";
-        QueuedTrack removed = music.scheduler.removeAt(position - 1);
+        TrackScheduler scheduler = MusicManagers.getIfExists(guildId);
+        if (scheduler == null) return "No hay ninguna cola activa.";
+        QueuedTrack removed = scheduler.removeAt(position - 1);
         if (removed == null) return "No hay ninguna canción en esa posición.";
         return "Quité de la cola: **" + removed.title + "**";
     }

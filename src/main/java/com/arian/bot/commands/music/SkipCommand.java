@@ -1,7 +1,7 @@
 package com.arian.bot.commands.music;
 
-import com.arian.bot.music.GuildMusicManager;
 import com.arian.bot.music.MusicManagers;
+import com.arian.bot.music.TrackScheduler;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 
@@ -17,9 +17,9 @@ public class SkipCommand {
     }
 
     private static String skip(String guildId) {
-        GuildMusicManager music = MusicManagers.getIfExists(guildId);
-        if (music == null || music.scheduler.nowPlaying() == null) return "No hay nada sonando ahorita.";
-        music.scheduler.skip();
+        TrackScheduler scheduler = MusicManagers.getIfExists(guildId);
+        if (scheduler == null || scheduler.nowPlaying() == null) return "No hay nada sonando ahorita.";
+        scheduler.skip();
         return "Saltado. ⏭️";
     }
 }

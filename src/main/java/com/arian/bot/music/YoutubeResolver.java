@@ -1,9 +1,10 @@
 package com.arian.bot.music;
 
-import com.sedmelluq.discord.lavaplayer.player.AudioLoadResultHandler;
-import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
-import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
-import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
+import dev.arbjerg.lavalink.client.Link;
+import dev.arbjerg.lavalink.client.player.LavalinkLoadResult;
+import dev.arbjerg.lavalink.client.player.LoadFailed;
+import dev.arbjerg.lavalink.client.player.Track;
+import dev.arbjerg.lavalink.client.player.TrackLoaded;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -13,14 +14,12 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Resuelve canciones y playlists de YouTube con yt-dlp: se actualiza mucho más rápido que cualquier
  * librería Java ante los cambios de YouTube, así que se usa solo para conseguir la URL directa del
- * audio; Lavaplayer (HttpAudioSourceManager) se encarga de reproducirla.
+ * audio; Lavalink (el servidor de audio) se encarga de reproducirla de verdad.
  *
  * Si existe ~/yt-cookies.txt se usa para evitar el bloqueo de "confirma que no eres un robot" de
  * YouTube (mismo mecanismo que ya usa el comando de descarga).
@@ -34,7 +33,7 @@ public class YoutubeResolver {
     }
 
     /** Resuelve una sola canción (nombre o link) con su audio ya listo para reproducir. Null si falla. */
-    public static QueuedTrack resolve(String query, String requestedBy) {
+    public static QueuedTrack resolve(Link link, String query, String requestedBy) {
         String ytdlpQuery = looksLikeUrl(query) ? query : "ytsearch1:" + query;
         JSONObject info = runYtDlpJson(ytdlpQuery);
         if (info == null) return null;
@@ -49,7 +48,7 @@ public class YoutubeResolver {
                 (long) (info.optDouble("duration", 0) * 1000),
                 requestedBy
         );
-        queued.resolved = loadAudioTrack(url, queued.title);
+        queued.resolved = loadAudioTrack(link, url, queued.title);
         return queued.resolved != null ? queued : null;
     }
 
@@ -90,47 +89,29 @@ public class YoutubeResolver {
     }
 
     /** Resuelve el audio real de una entrada de cola pendiente (de una playlist), justo antes de sonar. */
-    public static boolean resolveAudio(QueuedTrack queued) {
+    public static boolean resolveAudio(Link link, QueuedTrack queued) {
         JSONObject info = runYtDlpJson(queued.query);
         if (info == null) return false;
         String url = info.optString("url", "");
         if (url.isBlank()) return false;
-        queued.resolved = loadAudioTrack(url, queued.title);
+        queued.resolved = loadAudioTrack(link, url, queued.title);
         return queued.resolved != null;
     }
 
-    private static AudioTrack loadAudioTrack(String url, String title) {
-        CountDownLatch latch = new CountDownLatch(1);
-        AtomicReference<AudioTrack> result = new AtomicReference<>();
-        MusicManagers.PLAYER_MANAGER.loadItem(url, new AudioLoadResultHandler() {
-            @Override
-            public void trackLoaded(AudioTrack track) {
-                result.set(track);
-                latch.countDown();
-            }
-
-            @Override
-            public void playlistLoaded(AudioPlaylist playlist) {
-                latch.countDown();
-            }
-
-            @Override
-            public void noMatches() {
-                latch.countDown();
-            }
-
-            @Override
-            public void loadFailed(FriendlyException e) {
-                System.err.println("❌ Error al cargar audio (" + title + "): " + e.getMessage());
-                latch.countDown();
-            }
-        });
+    private static Track loadAudioTrack(Link link, String url, String title) {
         try {
-            latch.await(TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+            LavalinkLoadResult result = link.loadItem(url).block(java.time.Duration.ofSeconds(TIMEOUT_SECONDS));
+            if (result instanceof TrackLoaded loaded) {
+                return loaded.getTrack();
+            }
+            if (result instanceof LoadFailed failed) {
+                System.err.println("❌ Error al cargar audio (" + title + "): " + failed.getException().getMessage());
+            }
+            return null;
+        } catch (Exception e) {
+            System.err.println("❌ Error al cargar audio (" + title + "): " + e.getMessage());
+            return null;
         }
-        return result.get();
     }
 
     private static boolean looksLikeUrl(String s) {

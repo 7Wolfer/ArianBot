@@ -1,15 +1,14 @@
 package com.arian.bot.commands.music;
 
-import com.arian.bot.music.GuildMusicManager;
 import com.arian.bot.music.MusicManagers;
 import com.arian.bot.music.QueuedTrack;
+import com.arian.bot.music.TrackScheduler;
 import com.arian.bot.music.YoutubeResolver;
-import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.middleman.AudioChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
-import net.dv8tion.jda.api.managers.AudioManager;
 
 import java.util.Arrays;
 import java.util.List;
@@ -37,8 +36,9 @@ public class PlayCommand {
         event.deferReply().queue();
         String guildId = event.getGuild().getId();
         String requestedBy = event.getUser().getEffectiveName();
+        JDA jda = event.getJDA();
         executor.submit(() -> {
-            String result = handle(guildId, channel, query, requestedBy);
+            String result = handle(guildId, channel, jda, query, requestedBy);
             event.getHook().sendMessage(result).queue();
         });
     }
@@ -57,41 +57,30 @@ public class PlayCommand {
         String query = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
         String guildId = event.getGuild().getId();
         String requestedBy = event.getAuthor().getEffectiveName();
+        JDA jda = event.getJDA();
         event.getChannel().sendTyping().queue();
         executor.submit(() -> {
-            String result = handle(guildId, channel, query, requestedBy);
+            String result = handle(guildId, channel, jda, query, requestedBy);
             event.getChannel().sendMessage(result).queue();
         });
     }
 
-    private static String handle(String guildId, AudioChannel channel, String query, String requestedBy) {
-        GuildMusicManager music = MusicManagers.get(guildId);
-        joinIfNeeded(channel, music);
+    private static String handle(String guildId, AudioChannel channel, JDA jda, String query, String requestedBy) {
+        TrackScheduler scheduler = MusicManagers.get(guildId);
+        jda.getDirectAudioController().connect(channel);
 
         if (YoutubeResolver.isPlaylistUrl(query)) {
             List<QueuedTrack> tracks = YoutubeResolver.listPlaylist(query, requestedBy, PLAYLIST_LIMIT);
             if (tracks.isEmpty()) return "No pude leer esa playlist, revisa el link.";
-            tracks.forEach(music.scheduler::queue);
+            tracks.forEach(scheduler::queue);
             return "Agregué **" + tracks.size() + "** canciones de la playlist a la cola.";
         }
 
-        QueuedTrack track = YoutubeResolver.resolve(query, requestedBy);
+        QueuedTrack track = YoutubeResolver.resolve(scheduler.link(), query, requestedBy);
         if (track == null) return "No encontré esa canción (o YouTube la bloqueó), intenta con otro nombre o link.";
-        music.scheduler.queue(track);
+        scheduler.queue(track);
         return "Agregada a la cola: **" + track.title + "**"
                 + (track.author.isBlank() || track.author.equals("Desconocido") ? "" : " — " + track.author);
-    }
-
-    private static void joinIfNeeded(AudioChannel channel, GuildMusicManager music) {
-        Guild guild = channel.getGuild();
-        AudioManager audioManager = guild.getAudioManager();
-        if (audioManager.getSendingHandler() == null) {
-            audioManager.setSendingHandler(music.sendHandler);
-            audioManager.setConnectionListener(new com.arian.bot.music.VoiceConnectionListener(guild.getId()));
-        }
-        if (!audioManager.isConnected()) {
-            audioManager.openAudioConnection(channel);
-        }
     }
 
     private static AudioChannel memberChannel(Member member) {

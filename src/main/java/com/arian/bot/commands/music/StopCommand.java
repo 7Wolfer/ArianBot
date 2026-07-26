@@ -1,6 +1,8 @@
 package com.arian.bot.commands.music;
 
 import com.arian.bot.music.MusicManagers;
+import com.arian.bot.music.TrackScheduler;
+import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 
@@ -17,10 +19,10 @@ public class StopCommand {
         event.getChannel().sendMessage("Listo, salgo de voz. 👋").queue();
     }
 
-    private static void stop(net.dv8tion.jda.api.entities.Guild guild) {
-        var music = MusicManagers.getIfExists(guild.getId());
-        if (music != null) music.scheduler.stopAndClear();
-        guild.getAudioManager().closeAudioConnection();
+    private static void stop(Guild guild) {
+        TrackScheduler scheduler = MusicManagers.getIfExists(guild.getId());
+        if (scheduler != null) scheduler.stopAndClear();
+        guild.getJDA().getDirectAudioController().disconnect(guild);
         MusicManagers.remove(guild.getId());
     }
 }

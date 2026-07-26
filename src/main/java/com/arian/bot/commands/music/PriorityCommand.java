@@ -1,7 +1,7 @@
 package com.arian.bot.commands.music;
 
-import com.arian.bot.music.GuildMusicManager;
 import com.arian.bot.music.MusicManagers;
+import com.arian.bot.music.TrackScheduler;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
@@ -25,9 +25,9 @@ public class PriorityCommand {
 
     private static String prioritize(String guildId, int position) {
         if (position < 1) return "Dame un número de posición válido (mira `/queue` para los números).";
-        GuildMusicManager music = MusicManagers.getIfExists(guildId);
-        if (music == null) return "No hay ninguna cola activa.";
-        boolean moved = music.scheduler.moveToFront(position - 1);
+        TrackScheduler scheduler = MusicManagers.getIfExists(guildId);
+        if (scheduler == null) return "No hay ninguna cola activa.";
+        boolean moved = scheduler.moveToFront(position - 1);
         if (!moved) return "No hay ninguna canción en esa posición.";
         return "Listo, esa es la siguiente en sonar. ⏫";
     }

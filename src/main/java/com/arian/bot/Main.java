@@ -5,7 +5,11 @@ import com.arian.bot.listeners.ArianListener;
 import com.arian.bot.listeners.ButtonListener;
 import com.arian.bot.listeners.PrefixCommandListener;
 import com.arian.bot.listeners.SlashCommandListener;
+import com.arian.bot.music.MusicManagers;
 import com.arian.bot.news.NewsScheduler;
+import dev.arbjerg.lavalink.client.Helpers;
+import dev.arbjerg.lavalink.client.LavalinkClient;
+import dev.arbjerg.lavalink.libraries.jda.JDAVoiceUpdateListener;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
@@ -20,11 +24,20 @@ public class Main {
         if (token == null || token.isBlank()) {
             throw new IllegalStateException("Falta la variable de entorno DISCORD_TOKEN");
         }
+        String lavalinkPassword = System.getenv("LAVALINK_PASSWORD");
+        if (lavalinkPassword == null || lavalinkPassword.isBlank()) {
+            throw new IllegalStateException("Falta la variable de entorno LAVALINK_PASSWORD");
+        }
 
         DataBaseManager.initialize();
 
+        // El cliente de Lavalink se crea antes que JDA porque JDABuilder necesita el
+        // interceptor de voz (JDAVoiceUpdateListener) para reenviarle los eventos de voz.
+        LavalinkClient lavalinkClient = MusicManagers.init(Helpers.getUserIdFromToken(token), lavalinkPassword);
+
         JDA jda = JDABuilder.createDefault(token)
                 .enableIntents(GatewayIntent.MESSAGE_CONTENT, GatewayIntent.GUILD_MESSAGES, GatewayIntent.GUILD_MEMBERS, GatewayIntent.GUILD_VOICE_STATES)
+                .setVoiceDispatchInterceptor(new JDAVoiceUpdateListener(lavalinkClient))
                 .addEventListeners(
                         new SlashCommandListener(),
                         new PrefixCommandListener(),

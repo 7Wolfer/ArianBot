@@ -1,8 +1,8 @@
 package com.arian.bot.commands.music;
 
-import com.arian.bot.music.GuildMusicManager;
 import com.arian.bot.music.MusicManagers;
 import com.arian.bot.music.QueuedTrack;
+import com.arian.bot.music.TrackScheduler;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 
@@ -22,19 +22,19 @@ public class QueueCommand {
     }
 
     private static String build(String guildId) {
-        GuildMusicManager music = MusicManagers.getIfExists(guildId);
-        if (music == null || (music.scheduler.nowPlaying() == null && music.scheduler.snapshot().isEmpty())) {
+        TrackScheduler scheduler = MusicManagers.getIfExists(guildId);
+        if (scheduler == null || (scheduler.nowPlaying() == null && scheduler.snapshot().isEmpty())) {
             return "No hay nada en la cola. Pide algo con `/play` o `a!play <canción>`.";
         }
 
         StringBuilder sb = new StringBuilder();
-        QueuedTrack current = music.scheduler.nowPlaying();
+        QueuedTrack current = scheduler.nowPlaying();
         if (current != null) {
             sb.append("🎶 Sonando ahora: **").append(current.title).append("** (")
               .append(current.formattedDuration()).append(") — pedida por ").append(current.requestedBy).append("\n\n");
         }
 
-        List<QueuedTrack> queue = music.scheduler.snapshot();
+        List<QueuedTrack> queue = scheduler.snapshot();
         if (queue.isEmpty()) {
             sb.append("La cola está vacía.");
             return sb.toString();

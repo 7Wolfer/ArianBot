@@ -1,9 +1,9 @@
 package com.arian.bot.music;
 
-import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
-import com.sedmelluq.discord.lavaplayer.player.event.AudioEventAdapter;
-import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
-import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason;
+import dev.arbjerg.lavalink.client.Link;
+import dev.arbjerg.lavalink.client.player.LavalinkPlayer;
+import dev.arbjerg.lavalink.protocol.v4.Message;
+import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -13,19 +13,23 @@ import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
 /** Maneja la cola de reproducción de un servidor: agregar, prioridad, quitar, avanzar a la siguiente. */
-public class TrackScheduler extends AudioEventAdapter {
+public class TrackScheduler {
 
     private static final ExecutorService resolverExecutor = Executors.newCachedThreadPool();
 
-    private final AudioPlayer player;
+    private final Link link;
     private final LinkedList<QueuedTrack> queue = new LinkedList<>();
     private volatile QueuedTrack nowPlaying;
 
     /** Se llama cuando el scheduler quiere avisar algo al canal (ej. "no pude reproducir X, la salto"). */
     public volatile Consumer<String> onNotify;
 
-    public TrackScheduler(AudioPlayer player) {
-        this.player = player;
+    public TrackScheduler(Link link) {
+        this.link = link;
+    }
+
+    public Link link() {
+        return link;
     }
 
     /** Agrega al final de la cola; si no hay nada sonando, arranca de una. */
@@ -48,7 +52,7 @@ public class TrackScheduler extends AudioEventAdapter {
 
     /** Corta la canción actual y avanza a la siguiente ya mismo. */
     public synchronized void skip() {
-        player.stopTrack();
+        fireAndForget(link.createOrUpdatePlayer().stopTrack(), "saltar canción");
         advance();
     }
 
@@ -56,12 +60,13 @@ public class TrackScheduler extends AudioEventAdapter {
     public synchronized void stopAndClear() {
         queue.clear();
         nowPlaying = null;
-        player.stopTrack();
+        fireAndForget(link.createOrUpdatePlayer().stopTrack(), "detener reproducción");
     }
 
     public synchronized boolean togglePause() {
-        boolean paused = !player.isPaused();
-        player.setPaused(paused);
+        LavalinkPlayer cached = link.getCachedPlayer();
+        boolean paused = cached == null || !cached.getPaused();
+        fireAndForget(link.createOrUpdatePlayer().setPaused(paused), "pausar/reanudar");
         return paused;
     }
 
@@ -85,9 +90,9 @@ public class TrackScheduler extends AudioEventAdapter {
         return true;
     }
 
-    @Override
-    public void onTrackEnd(AudioPlayer player, AudioTrack track, AudioTrackEndReason endReason) {
-        if (!endReason.mayStartNext) return;
+    /** Llamado por el dispatcher central de MusicManagers cuando termina una canción en este servidor. */
+    void onTrackEnd(Message.EmittedEvent.TrackEndEvent.AudioTrackEndReason reason) {
+        if (!reason.getMayStartNext()) return;
         synchronized (this) {
             advance();
         }
@@ -102,22 +107,26 @@ public class TrackScheduler extends AudioEventAdapter {
     private void play(QueuedTrack track) {
         nowPlaying = track;
         if (track.resolved != null) {
-            player.playTrack(track.resolved);
+            fireAndForget(link.createOrUpdatePlayer().setTrack(track.resolved), "reproducir canción");
             return;
         }
         // Viene de una playlist y todavía no se resolvió: se hace justo ahora, sin bloquear el hilo de eventos.
         resolverExecutor.submit(() -> {
-            boolean ok = YoutubeResolver.resolveAudio(track);
+            boolean ok = YoutubeResolver.resolveAudio(link, track);
             synchronized (this) {
                 if (nowPlaying != track) return; // se saltó mientras se resolvía
                 if (ok) {
-                    player.playTrack(track.resolved);
+                    fireAndForget(link.createOrUpdatePlayer().setTrack(track.resolved), "reproducir canción");
                 } else {
                     notify("No pude reproducir **" + track.title + "**, la salto.");
                     advance();
                 }
             }
         });
+    }
+
+    private static void fireAndForget(Mono<?> mono, String action) {
+        mono.subscribe(v -> {}, err -> System.err.println("❌ Error al " + action + ": " + err.getMessage()));
     }
 
     private void notify(String message) {

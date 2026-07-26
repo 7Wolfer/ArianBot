@@ -1,6 +1,6 @@
 package com.arian.bot.music;
 
-import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
+import dev.arbjerg.lavalink.client.player.Track;
 
 /**
  * Una entrada en la cola de reproducción. {@code resolved} es el audio real ya listo para sonar;
@@ -12,7 +12,7 @@ public class QueuedTrack {
     public final String author;
     public final long durationMs; // 0 si se desconoce
     public final String requestedBy;
-    public volatile AudioTrack resolved;
+    public volatile Track resolved;
 
     public QueuedTrack(String query, String title, String author, long durationMs, String requestedBy) {
         this.query = query;
