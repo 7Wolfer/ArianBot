@@ -59,6 +59,10 @@ public class HackerNewsSource {
                         .atZone(ZoneId.of("America/Mexico_City"))
                         .format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale.forLanguageTag("es-MX")));
 
+                // Solo los posts "Ask/Show HN" traen texto propio; el resto no tiene abstract disponible.
+                String storyText = hit.optString("story_text", "");
+                String sourceText = storyText.isBlank() ? null : storyText.replaceAll("<[^>]*>", "").trim();
+
                 items.add(new NewsItem(
                         "hn:" + objectId,
                         title,
@@ -66,7 +70,8 @@ public class HackerNewsSource {
                         "Hacker News",
                         storyUrl,
                         "Programación",
-                        published
+                        published,
+                        sourceText
                 ));
             }
         } catch (Exception e) {

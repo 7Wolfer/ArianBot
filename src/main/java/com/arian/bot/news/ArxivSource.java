@@ -82,6 +82,9 @@ public class ArxivSource {
                         ? ZonedDateTime.parse(publishedRaw).format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale.forLanguageTag("es-MX")))
                         : "";
 
+                String summary = text(entry, "summary");
+                String sourceText = summary == null ? null : truncate(summary.replaceAll("\\s+", " ").trim(), 600);
+
                 items.add(new NewsItem(
                         "arxiv:" + arxivId,
                         title,
@@ -89,7 +92,8 @@ public class ArxivSource {
                         "arXiv",
                         absUrl,
                         category,
-                        published
+                        published,
+                        sourceText
                 ));
             }
         } catch (Exception e) {
@@ -116,5 +120,9 @@ public class ArxivSource {
         if (names.isEmpty()) return "Autor desconocido";
         if (names.size() <= 3) return String.join(", ", names);
         return String.join(", ", names.subList(0, 3)) + " et al.";
+    }
+
+    private static String truncate(String s, int max) {
+        return s.length() <= max ? s : s.substring(0, max) + "…";
     }
 }

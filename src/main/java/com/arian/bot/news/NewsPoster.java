@@ -14,10 +14,12 @@ public class NewsPoster {
     private static final Color COLOR_NEUROCIENCIA = new Color(163, 113, 247);
 
     /** Envía el digest al canal. Devuelve true si se mandó correctamente (bloquea hasta confirmarlo). */
-    public static boolean post(GuildMessageChannel channel, List<NewsItem> items) {
-        List<MessageEmbed> embeds = items.stream().map(NewsPoster::buildEmbed).toList();
+    public static boolean post(GuildMessageChannel channel, List<NewsItem> items, NewsSummarizer.Digest digest) {
+        List<MessageEmbed> embeds = items.stream()
+                .map(item -> buildEmbed(item, digest.summaries().get(item.id())))
+                .toList();
         try {
-            channel.sendMessage("📰 **Resumen de la semana — Programación y Neurociencia**")
+            channel.sendMessage(digest.intro())
                     .addEmbeds(embeds)
                     .complete();
             return true;
@@ -27,13 +29,16 @@ public class NewsPoster {
         }
     }
 
-    private static MessageEmbed buildEmbed(NewsItem item) {
+    private static MessageEmbed buildEmbed(NewsItem item, String summary) {
         EmbedBuilder eb = new EmbedBuilder();
         eb.setTitle(truncate(item.title(), 256), item.url());
+        if (summary != null && !summary.isBlank()) {
+            eb.setDescription(truncate(summary, 2048));
+        }
         eb.setColor("Neurociencia".equals(item.category()) ? COLOR_NEUROCIENCIA : COLOR_PROGRAMACION);
-        eb.addField("Autores", item.authors() == null || item.authors().isBlank() ? "—" : item.authors(), false);
+        eb.addField("Autores", item.authors() == null || item.authors().isBlank() ? "—" : item.authors(), true);
         eb.addField("Fuente", item.published().isBlank() ? item.source() : item.source() + " · " + item.published(), true);
-        eb.addField("Categoría", item.category(), true);
+        eb.setFooter(item.category());
         return eb.build();
     }
 

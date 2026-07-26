@@ -62,12 +62,14 @@ public class NewsScheduler {
             return;
         }
 
+        NewsSummarizer.Digest digest = NewsSummarizer.summarize(items);
+
         boolean sentToAtLeastOne = false;
         for (String channelId : channelIds) {
             // Acepta tanto canales de texto normales como canales de anuncios.
             GuildMessageChannel channel = jda.getChannelById(GuildMessageChannel.class, channelId);
             if (channel == null) continue;
-            if (NewsPoster.post(channel, items)) sentToAtLeastOne = true;
+            if (NewsPoster.post(channel, items, digest)) sentToAtLeastOne = true;
         }
 
         // Solo se marcan como posteadas si de verdad llegaron a algún canal;
