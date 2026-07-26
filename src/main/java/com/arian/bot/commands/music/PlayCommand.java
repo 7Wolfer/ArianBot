@@ -2,6 +2,7 @@ package com.arian.bot.commands.music;
 
 import com.arian.bot.music.MusicManagers;
 import com.arian.bot.music.QueuedTrack;
+import com.arian.bot.music.SpotifyResolver;
 import com.arian.bot.music.TrackScheduler;
 import com.arian.bot.music.YoutubeResolver;
 import net.dv8tion.jda.api.JDA;
@@ -68,6 +69,19 @@ public class PlayCommand {
     private static String handle(String guildId, AudioChannel channel, JDA jda, String query, String requestedBy) {
         TrackScheduler scheduler = MusicManagers.get(guildId);
         jda.getDirectAudioController().connect(channel);
+
+        if (SpotifyResolver.isSpotifyUrl(query)) {
+            if (SpotifyResolver.isTrackUrl(query)) {
+                QueuedTrack track = SpotifyResolver.resolveTrack(query, requestedBy);
+                if (track == null) return "No pude leer esa canción de Spotify, revisa el link (o Spotify no está configurado).";
+                scheduler.queue(track);
+                return "Agregada a la cola (Spotify → YouTube): **" + track.title + "** — " + track.author;
+            }
+            List<QueuedTrack> tracks = SpotifyResolver.listPlaylistOrAlbum(query, requestedBy, PLAYLIST_LIMIT);
+            if (tracks.isEmpty()) return "No pude leer esa playlist/álbum de Spotify (revisa que sea público, o que Spotify esté configurado).";
+            tracks.forEach(scheduler::queue);
+            return "Agregué **" + tracks.size() + "** canciones de Spotify a la cola (se buscan en YouTube).";
+        }
 
         if (YoutubeResolver.isPlaylistUrl(query)) {
             List<QueuedTrack> tracks = YoutubeResolver.listPlaylist(query, requestedBy, PLAYLIST_LIMIT);
