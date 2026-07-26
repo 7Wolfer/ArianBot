@@ -111,6 +111,13 @@ public class SpotifyResolver {
                 return null;
             }
 
+            // Con SPOTIFY_REFRESH_TOKEN (login de usuario ya autorizado una vez) se puede leer el
+            // contenido de playlists, que la API no permite con solo credenciales de aplicación.
+            String refreshToken = System.getenv("SPOTIFY_REFRESH_TOKEN");
+            String body = (refreshToken != null && !refreshToken.isBlank())
+                    ? "grant_type=refresh_token&refresh_token=" + java.net.URLEncoder.encode(refreshToken, StandardCharsets.UTF_8)
+                    : "grant_type=client_credentials";
+
             try {
                 String creds = Base64.getEncoder().encodeToString((clientId + ":" + clientSecret).getBytes(StandardCharsets.UTF_8));
                 HttpRequest request = HttpRequest.newBuilder()
@@ -118,7 +125,7 @@ public class SpotifyResolver {
                         .timeout(Duration.ofSeconds(10))
                         .header("Authorization", "Basic " + creds)
                         .header("Content-Type", "application/x-www-form-urlencoded")
-                        .POST(HttpRequest.BodyPublishers.ofString("grant_type=client_credentials"))
+                        .POST(HttpRequest.BodyPublishers.ofString(body))
                         .build();
                 HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
                 if (response.statusCode() != 200) {
