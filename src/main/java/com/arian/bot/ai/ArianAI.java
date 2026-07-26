@@ -11,6 +11,8 @@ import java.time.Duration;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Hace la llamada a la API de Claude para que Arian decida qué decir.
@@ -123,10 +125,30 @@ public class ArianAI {
             Si se te proporciona memoria sobre el usuario que escribió, úsala naturalmente \
             (no la menciones directamente, solo actúa como si ya lo conocieras).
             Si el mensaje contiene algo nuevo e interesante sobre esa persona (gustos, datos \
-            personales, apodos, cosas que pasaron), añade al INICIO de tu respuesta una línea \
-            con este formato exacto y nada más en esa línea:
+            personales, apodos, cosas que pasaron), añade una línea con este formato exacto y \
+            nada más en esa línea:
             [MEM:resumen breve y actualizado de lo que sabes de esa persona, máximo 2-3 hechos]
             Si no hay nada nuevo que recordar, no incluyas la línea [MEM:].
+
+            MEMORIA DEL SERVIDOR (cultura del grupo):
+            Además de la gente, conoces al SERVIDOR como grupo: sus chistes internos, frases que \
+            se repiten, jerga propia, referencias compartidas, running gags, dinámicas conocidas \
+            entre varias personas. Si se te da un resumen de esto, úsalo con naturalidad para sonar \
+            como alguien que de verdad es parte de este grupo — nunca lo menciones directamente, \
+            solo actúa como si ya lo conocieras (podrías incluso soltar la referencia/chiste si viene \
+            a cuento, como haría cualquiera del grupo).
+            Sé PROACTIVO detectando esto: en cuanto veas un apodo, chiste que se repite, frase \
+            característica, jerga propia o dinámica entre varias personas —aunque sea la primera \
+            vez que lo ves en esta conversación—, regístralo. No hace falta que se haya repetido \
+            muchas veces antes; basta con que se sienta como "así es como habla/bromea este grupo". \
+            Esto es distinto de la memoria de una sola persona: es sobre el GRUPO, no un individuo. \
+            Cuando detectes algo así, añade una línea con este formato exacto y nada más en esa línea:
+            [SERVERMEM:resumen actualizado de la cultura del servidor, fusionando lo nuevo con lo \
+            que ya sabías, máximo 5-6 hechos]
+            Solo omite la línea [SERVERMEM:] si de verdad no hay nada de esto en la conversación.
+
+            ORDEN DE LAS ETIQUETAS: si necesitas incluir [MEM:], [SERVERMEM:] y/o [REACT:], cada una \
+            va sola en su propia línea, en ese orden, antes de tu mensaje. Solo incluye las que apliquen.
             """;
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -140,9 +162,10 @@ public class ArianAI {
      * @param channelHistory historial de mensajes recientes del canal
      * @param newMessage     el mensaje más reciente que disparó la respuesta
      * @param authorName     nombre del usuario que escribió el mensaje
+     * @param serverMemory   lo que Arian sabe de la cultura de este servidor, o null si no hay nada aún
      * @return ArianResponse con texto y/o emoji de reacción, o null si Claude dijo SKIP
      */
-    public static ArianResponse generateResponse(String channelHistory, String newMessage, String authorName, String userMemory) {
+    public static ArianResponse generateResponse(String channelHistory, String newMessage, String authorName, String userMemory, String serverMemory) {
         String apiKey = System.getenv("ANTHROPIC_API_KEY");
         if (apiKey == null || apiKey.isBlank()) {
             System.err.println("⚠️ Falta la variable de entorno ANTHROPIC_API_KEY");
@@ -156,22 +179,26 @@ public class ArianAI {
                 ? "\nLo que recuerdas de %s: %s\n".formatted(authorName, userMemory)
                 : "";
 
+        String serverMemorySection = (serverMemory != null && !serverMemory.isBlank())
+                ? "\nLo que sabes de la cultura de este servidor: %s\n".formatted(serverMemory)
+                : "";
+
         String userContent = """
                 Hora actual en México: %s
 
                 Historial reciente del canal:
                 %s
-                %s
+                %s%s
                 Último mensaje de %s:
                 %s
 
                 Reacciona al último mensaje. Si no se te ocurre un comentario directo, \
                 suelta un dato interesante relacionado con el tema (nunca digas SKIP).
-                """.formatted(horaActual, channelHistory, memorySection, authorName, newMessage);
+                """.formatted(horaActual, channelHistory, memorySection, serverMemorySection, authorName, newMessage);
 
         JSONObject body = new JSONObject();
         body.put("model", MODEL);
-        body.put("max_tokens", 150);
+        body.put("max_tokens", 220);
         body.put("system", SYSTEM_PROMPT);
 
         JSONArray messages = new JSONArray();
@@ -205,36 +232,33 @@ public class ArianAI {
 
             if (text.equalsIgnoreCase("SKIP") || text.isBlank()) return null;
 
-            // Parsear [MEM:...] — puede estar en cualquier línea al inicio
-            String memoryUpdate = null;
-            String remaining = text;
-            if (text.startsWith("[MEM:")) {
-                int end = text.indexOf("]");
-                if (end != -1) {
-                    memoryUpdate = text.substring(5, end).trim();
-                    remaining = text.substring(end + 1).trim();
-                }
-            }
+            // Parsear las etiquetas [MEM:...], [SERVERMEM:...] y [REACT:...] — por más que se pida
+            // que vayan al inicio, el modelo a veces las pone en otra posición, así que se buscan
+            // en cualquier parte del texto y se quitan del mensaje final.
+            String memoryUpdate = extractTag(text, "MEM");
+            String serverMemoryUpdate = extractTag(text, "SERVERMEM");
+            String emoji = extractTag(text, "REACT");
 
-            // Parsear formato [REACT:emoji]
-            String emoji = null;
-            String message = remaining;
-            if (remaining.startsWith("[REACT:")) {
-                int end = remaining.indexOf("]");
-                if (end != -1) {
-                    emoji = remaining.substring(7, end).trim();
-                    message = remaining.substring(end + 1).trim();
-                }
-            }
+            String message = text
+                    .replaceAll("(?s)\\[MEM:.*?\\]", "")
+                    .replaceAll("(?s)\\[SERVERMEM:.*?\\]", "")
+                    .replaceAll("(?s)\\[REACT:.*?\\]", "")
+                    .trim();
 
             // Si no hay ni texto ni emoji válido, ignorar
             if (message.isBlank() && (emoji == null || emoji.isBlank())) return null;
 
-            return new ArianResponse(message.isBlank() ? null : message, emoji, memoryUpdate);
+            return new ArianResponse(message.isBlank() ? null : message, emoji, memoryUpdate, serverMemoryUpdate);
 
         } catch (Exception e) {
             System.err.println("❌ Error al llamar a Claude: " + e.getMessage());
             return null;
         }
+    }
+
+    /** Busca [TAG:contenido] en cualquier parte del texto y devuelve el contenido, o null si no está. */
+    private static String extractTag(String text, String tagName) {
+        Matcher m = Pattern.compile("\\[" + tagName + ":(.*?)\\]", Pattern.DOTALL).matcher(text);
+        return m.find() ? m.group(1).trim() : null;
     }
 }

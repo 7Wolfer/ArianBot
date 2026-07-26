@@ -66,6 +66,13 @@ public class DataBaseManager {
                 );
                 """;
 
+        String serverMemoryTable = """
+                CREATE TABLE IF NOT EXISTS server_memory (
+                    guild_id TEXT PRIMARY KEY,
+                    memory   TEXT
+                );
+                """;
+
         try (Statement stmt = connection.createStatement()) {
             stmt.execute(pairTable);
             stmt.execute(receivedTable);
@@ -73,6 +80,7 @@ public class DataBaseManager {
             stmt.execute(memoryTable);
             stmt.execute(newsChannelTable);
             stmt.execute(postedNewsTable);
+            stmt.execute(serverMemoryTable);
         }
     }
 
@@ -102,6 +110,34 @@ public class DataBaseManager {
             ps.executeUpdate();
         } catch (SQLException e) {
             System.err.println("❌ Error en updateUserMemory: " + e.getMessage());
+        }
+    }
+
+    /** Devuelve lo que Arian sabe de la cultura de un servidor (chistes, jerga, referencias), o null si no hay nada. */
+    public static String getServerMemory(String guildId) {
+        try (PreparedStatement ps = connection.prepareStatement(
+                "SELECT memory FROM server_memory WHERE guild_id = ?")) {
+            ps.setString(1, guildId);
+            ResultSet rs = ps.executeQuery();
+            return rs.next() ? rs.getString("memory") : null;
+        } catch (SQLException e) {
+            System.err.println("❌ Error en getServerMemory: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /** Guarda o actualiza lo que Arian sabe de la cultura de un servidor. */
+    public static void updateServerMemory(String guildId, String memory) {
+        try (PreparedStatement ps = connection.prepareStatement("""
+                INSERT INTO server_memory (guild_id, memory)
+                VALUES (?, ?)
+                ON CONFLICT(guild_id) DO UPDATE SET memory = excluded.memory
+                """)) {
+            ps.setString(1, guildId);
+            ps.setString(2, memory);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            System.err.println("❌ Error en updateServerMemory: " + e.getMessage());
         }
     }
 

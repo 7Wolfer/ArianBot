@@ -80,10 +80,12 @@ public class ArianListener extends ListenerAdapter {
         String history = ChannelContext.getFormattedHistory(channelId);
         String userId   = event.getAuthor().getId();
         String userMemory = DataBaseManager.getUserMemory(userId);
+        String guildId = event.isFromGuild() ? event.getGuild().getId() : null;
+        String serverMemory = guildId != null ? DataBaseManager.getServerMemory(guildId) : null;
         var message = event.getMessage();
         boolean responderConReply = mentionado || esRespuestaArian;
         executor.submit(() -> {
-            ArianResponse response = ArianAI.generateResponse(history, content, authorName, userMemory);
+            ArianResponse response = ArianAI.generateResponse(history, content, authorName, userMemory, serverMemory);
             if (response == null) return;
 
             ChannelContext.markReplied(channelId);
@@ -91,6 +93,9 @@ public class ArianListener extends ListenerAdapter {
             // Guardar memoria si Claude detectó algo nuevo
             if (response.hasMemoryUpdate()) {
                 DataBaseManager.updateUserMemory(userId, authorName, response.memoryUpdate);
+            }
+            if (response.hasServerMemoryUpdate() && guildId != null) {
+                DataBaseManager.updateServerMemory(guildId, response.serverMemoryUpdate);
             }
 
             if (response.hasEmoji() && random.nextDouble() < REACT_CHANCE) {
