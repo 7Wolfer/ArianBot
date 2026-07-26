@@ -24,7 +24,7 @@ public class Main {
         DataBaseManager.initialize();
 
         JDA jda = JDABuilder.createDefault(token)
-                .enableIntents(GatewayIntent.MESSAGE_CONTENT, GatewayIntent.GUILD_MESSAGES, GatewayIntent.GUILD_MEMBERS)
+                .enableIntents(GatewayIntent.MESSAGE_CONTENT, GatewayIntent.GUILD_MESSAGES, GatewayIntent.GUILD_MEMBERS, GatewayIntent.GUILD_VOICE_STATES)
                 .addEventListeners(
                         new SlashCommandListener(),
                         new PrefixCommandListener(),
@@ -51,7 +51,17 @@ public class Main {
                 Commands.slash("download", "Descarga un video de TikTok, Instagram, YouTube, etc.")
                         .addOption(OptionType.STRING, "url", "El link del video a descargar", true),
                 Commands.slash("newschannel", "Configura el canal donde Arian postea noticias de programación y neurociencia")
-                        .addOption(OptionType.CHANNEL, "canal", "Canal para las noticias (vacío para ver el actual)", false)
+                        .addOption(OptionType.CHANNEL, "canal", "Canal para las noticias (vacío para ver el actual)", false),
+                Commands.slash("play", "Pon una canción o playlist de YouTube en tu canal de voz")
+                        .addOption(OptionType.STRING, "cancion", "Nombre de la canción o link de YouTube", true),
+                Commands.slash("skip", "Salta la canción actual"),
+                Commands.slash("pause", "Pausa o reanuda la música"),
+                Commands.slash("queue", "Muestra la cola de reproducción"),
+                Commands.slash("remove", "Quita una canción de la cola")
+                        .addOption(OptionType.INTEGER, "posicion", "Posición en la cola (mira /queue)", true),
+                Commands.slash("priority", "Pone una canción de la cola como la siguiente en sonar")
+                        .addOption(OptionType.INTEGER, "posicion", "Posición en la cola (mira /queue)", true),
+                Commands.slash("stop", "Para la música y saca a Arian del canal de voz")
         ).queue();
 
         NewsScheduler.start(jda);
