@@ -5,6 +5,7 @@ import com.arian.bot.listeners.ArianListener;
 import com.arian.bot.listeners.ButtonListener;
 import com.arian.bot.listeners.PrefixCommandListener;
 import com.arian.bot.listeners.SlashCommandListener;
+import com.arian.bot.listeners.VoiceIdleListener;
 import com.arian.bot.music.MusicManagers;
 import com.arian.bot.news.NewsScheduler;
 import dev.arbjerg.lavalink.client.Helpers;
@@ -42,7 +43,8 @@ public class Main {
                         new SlashCommandListener(),
                         new PrefixCommandListener(),
                         new ButtonListener(),
-                        new ArianListener()
+                        new ArianListener(),
+                        new VoiceIdleListener()
                 )
                 .build();
 
