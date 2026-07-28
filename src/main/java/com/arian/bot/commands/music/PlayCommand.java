@@ -6,6 +6,7 @@ import com.arian.bot.music.SpotifyResolver;
 import com.arian.bot.music.TrackScheduler;
 import com.arian.bot.music.YoutubeResolver;
 import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.middleman.AudioChannel;
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent;
@@ -81,6 +82,11 @@ public class PlayCommand {
     }
 
     private static String handle(String guildId, AudioChannel channel, JDA jda, String query, String requestedBy) {
+        AudioChannel currentChannel = currentVoiceChannel(jda, guildId);
+        if (currentChannel != null && currentChannel.getIdLong() != channel.getIdLong() && hasListeners(currentChannel)) {
+            return "Arian ya está sonando en " + currentChannel.getAsMention() + ", únete ahí para escucharlo.";
+        }
+
         TrackScheduler scheduler = MusicManagers.get(guildId);
         jda.getDirectAudioController().connect(channel);
 
@@ -115,5 +121,17 @@ public class PlayCommand {
         if (member == null) return null;
         var voiceState = member.getVoiceState();
         return voiceState != null ? voiceState.getChannel() : null;
+    }
+
+    /** Canal de voz donde Arian ya está conectado en este servidor, o null si no está en ninguno. */
+    private static AudioChannel currentVoiceChannel(JDA jda, String guildId) {
+        Guild guild = jda.getGuildById(guildId);
+        if (guild == null) return null;
+        var voiceState = guild.getSelfMember().getVoiceState();
+        return voiceState != null ? voiceState.getChannel() : null;
+    }
+
+    private static boolean hasListeners(AudioChannel channel) {
+        return channel.getMembers().stream().anyMatch(m -> !m.getUser().isBot());
     }
 }
