@@ -12,36 +12,24 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
-import java.time.Instant;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
  * Resuelve canciones y playlists de YouTube con yt-dlp: se actualiza mucho más rápido que cualquier
- * librería Java ante los cambios de YouTube, así que se usa solo para conseguir la URL directa del
- * audio; Lavalink (el servidor de audio) se encarga de reproducirla de verdad.
+ * librería Java ante los cambios de YouTube. yt-dlp descarga el audio a un archivo local y Lavalink
+ * lo reproduce desde ahí (en vez de pedirle a Lavalink la URL directa de googlevideo, que YouTube
+ * empezó a bloquear con 403 de forma intermitente cuando el que la pide no es el propio yt-dlp).
  *
  * Si existe ~/yt-cookies.txt se usa para evitar el bloqueo de "confirma que no eres un robot" de
  * YouTube (mismo mecanismo que ya usa el comando de descarga).
  */
 public class YoutubeResolver {
 
-    private static final int TIMEOUT_SECONDS = 30;
-
-    // YouTube/googlevideo empieza a devolver 403 si Lavalink pide varias URLs de audio en rápida
-    // sucesión desde la misma IP; se espacían las peticiones para evitar el bloqueo por rate-limit.
-    private static final Duration MIN_INTERVAL = Duration.ofSeconds(4);
-    private static volatile Instant lastLoad = Instant.EPOCH;
-
-    private static synchronized void respectRateLimit() throws InterruptedException {
-        Duration elapsed = Duration.between(lastLoad, Instant.now());
-        if (elapsed.compareTo(MIN_INTERVAL) < 0) {
-            Thread.sleep(MIN_INTERVAL.minus(elapsed).toMillis());
-        }
-        lastLoad = Instant.now();
-    }
+    private static final int TIMEOUT_SECONDS = 45;
 
     public static boolean isPlaylistUrl(String query) {
         return query.contains("list=") && !query.contains("watch?v=");
@@ -50,21 +38,17 @@ public class YoutubeResolver {
     /** Resuelve una sola canción (nombre o link) con su audio ya listo para reproducir. Null si falla. */
     public static QueuedTrack resolve(Link link, String query, String requestedBy) {
         String ytdlpQuery = looksLikeUrl(query) ? query : "ytsearch1:" + query;
-        JSONObject info = runYtDlpJson(ytdlpQuery);
-        if (info == null) return null;
+        Downloaded dl = downloadAudio(ytdlpQuery);
+        if (dl == null) return null;
 
-        String url = info.optString("url", "");
-        if (url.isBlank()) return null;
-
-        QueuedTrack queued = new QueuedTrack(
-                info.optString("webpage_url", query),
-                info.optString("title", "Desconocido"),
-                info.optString("uploader", "Desconocido"),
-                (long) (info.optDouble("duration", 0) * 1000),
-                requestedBy
-        );
-        queued.resolved = loadAudioTrack(link, url, queued.title);
-        return queued.resolved != null ? queued : null;
+        QueuedTrack queued = new QueuedTrack(query, dl.title, dl.author, dl.durationMs, requestedBy);
+        queued.localFile = dl.file;
+        queued.resolved = loadAudioTrack(link, dl.file, dl.title);
+        if (queued.resolved == null) {
+            dl.file.delete();
+            return null;
+        }
+        return queued;
     }
 
     /** Listado rápido (sin resolver audio todavía) de los videos de una playlist. */
@@ -105,18 +89,78 @@ public class YoutubeResolver {
 
     /** Resuelve el audio real de una entrada de cola pendiente (de una playlist), justo antes de sonar. */
     public static boolean resolveAudio(Link link, QueuedTrack queued) {
-        JSONObject info = runYtDlpJson(queued.query);
-        if (info == null) return false;
-        String url = info.optString("url", "");
-        if (url.isBlank()) return false;
-        queued.resolved = loadAudioTrack(link, url, queued.title);
-        return queued.resolved != null;
+        Downloaded dl = downloadAudio(queued.query);
+        if (dl == null) return false;
+        queued.localFile = dl.file;
+        queued.resolved = loadAudioTrack(link, dl.file, dl.title);
+        if (queued.resolved == null) {
+            dl.file.delete();
+            queued.localFile = null;
+            return false;
+        }
+        return true;
     }
 
-    private static Track loadAudioTrack(Link link, String url, String title) {
+    private static final class Downloaded {
+        final File file;
+        final String title;
+        final String author;
+        final long durationMs;
+
+        Downloaded(File file, String title, String author, long durationMs) {
+            this.file = file;
+            this.title = title;
+            this.author = author;
+            this.durationMs = durationMs;
+        }
+    }
+
+    /** Descarga el audio de una canción a un archivo temporal y devuelve su metadata. Null si falla. */
+    private static Downloaded downloadAudio(String ytdlpQuery) {
         try {
-            respectRateLimit();
-            LavalinkLoadResult result = link.loadItem(url).block(java.time.Duration.ofSeconds(TIMEOUT_SECONDS));
+            Path dir = Files.createTempDirectory("arian-music-");
+            List<String> cmd = baseCommand();
+            cmd.add("-f");
+            cmd.add("bestaudio");
+            cmd.add("--no-playlist");
+            cmd.add("-o");
+            cmd.add(dir.resolve("%(id)s.%(ext)s").toString());
+            cmd.add("--print");
+            cmd.add("%(title)s");
+            cmd.add("--print");
+            cmd.add("%(uploader)s");
+            cmd.add("--print");
+            cmd.add("%(duration)s");
+            cmd.add("--print");
+            cmd.add("after_move:filepath");
+            cmd.add(ytdlpQuery);
+
+            String output = runProcess(cmd);
+            if (output == null) return null;
+            String[] lines = output.split("\n", -1);
+            if (lines.length < 4) return null;
+
+            File file = new File(lines[3].trim());
+            if (!file.isFile()) return null;
+
+            double duration;
+            try {
+                duration = Double.parseDouble(lines[2].trim());
+            } catch (NumberFormatException e) {
+                duration = 0;
+            }
+            String title = lines[0].isBlank() ? "Desconocido" : lines[0];
+            String author = lines[1].isBlank() ? "Desconocido" : lines[1];
+            return new Downloaded(file, title, author, (long) (duration * 1000));
+        } catch (Exception e) {
+            System.err.println("❌ Error al descargar con yt-dlp: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private static Track loadAudioTrack(Link link, File file, String title) {
+        try {
+            LavalinkLoadResult result = link.loadItem(file.getAbsolutePath()).block(java.time.Duration.ofSeconds(TIMEOUT_SECONDS));
             if (result instanceof TrackLoaded loaded) {
                 return loaded.getTrack();
             }
@@ -132,22 +176,6 @@ public class YoutubeResolver {
 
     private static boolean looksLikeUrl(String s) {
         return s.startsWith("http://") || s.startsWith("https://");
-    }
-
-    private static JSONObject runYtDlpJson(String query) {
-        try {
-            List<String> cmd = baseCommand();
-            cmd.add("-f");
-            cmd.add("bestaudio");
-            cmd.add("-j");
-            cmd.add("--no-playlist");
-            cmd.add(query);
-            String output = runProcess(cmd);
-            return output == null || output.isBlank() ? null : new JSONObject(firstLine(output));
-        } catch (Exception e) {
-            System.err.println("❌ Error al resolver con yt-dlp: " + e.getMessage());
-            return null;
-        }
     }
 
     private static List<String> baseCommand() {
@@ -166,7 +194,7 @@ public class YoutubeResolver {
             cmd.add("deno:" + deno.getAbsolutePath());
         }
         // Evita que yt-dlp baje el HTML completo del watch page y los configs extra;
-        // no se necesitan para solo sacar la URL directa del audio, y ahorra ~1s por canción.
+        // no se necesitan para resolver el audio, y ahorra ~1s por canción.
         cmd.add("--extractor-args");
         cmd.add("youtube:skip=webpage,configs");
         return cmd;
@@ -175,11 +203,6 @@ public class YoutubeResolver {
     private static String ytDlpPath() {
         File local = new File(System.getProperty("user.home"), ".local/bin/yt-dlp");
         return local.isFile() ? local.getAbsolutePath() : "yt-dlp";
-    }
-
-    private static String firstLine(String s) {
-        int nl = s.indexOf('\n');
-        return nl == -1 ? s : s.substring(0, nl);
     }
 
     private static String runProcess(List<String> cmd) throws Exception {

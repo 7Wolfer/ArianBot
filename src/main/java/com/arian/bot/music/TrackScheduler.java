@@ -5,6 +5,7 @@ import dev.arbjerg.lavalink.client.player.LavalinkPlayer;
 import dev.arbjerg.lavalink.protocol.v4.Message;
 import reactor.core.publisher.Mono;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -58,6 +59,7 @@ public class TrackScheduler {
 
     /** Vacía la cola y corta la reproducción. */
     public synchronized void stopAndClear() {
+        cleanupFile(nowPlaying);
         queue.clear();
         nowPlaying = null;
         fireAndForget(link.createOrUpdatePlayer().stopTrack(), "detener reproducción");
@@ -99,6 +101,7 @@ public class TrackScheduler {
     }
 
     private void advance() {
+        cleanupFile(nowPlaying);
         nowPlaying = null;
         QueuedTrack next = queue.pollFirst();
         if (next != null) play(next);
@@ -114,7 +117,10 @@ public class TrackScheduler {
         resolverExecutor.submit(() -> {
             boolean ok = YoutubeResolver.resolveAudio(link, track);
             synchronized (this) {
-                if (nowPlaying != track) return; // se saltó mientras se resolvía
+                if (nowPlaying != track) {
+                    cleanupFile(track); // se saltó mientras se resolvía/descargaba: el archivo queda huérfano
+                    return;
+                }
                 if (ok) {
                     fireAndForget(link.createOrUpdatePlayer().setTrack(track.resolved), "reproducir canción");
                 } else {
@@ -123,6 +129,16 @@ public class TrackScheduler {
                 }
             }
         });
+    }
+
+    /** Borra el archivo de audio descargado para esta canción (y su carpeta temporal), si lo tiene. */
+    private static void cleanupFile(QueuedTrack track) {
+        if (track != null && track.localFile != null) {
+            File parent = track.localFile.getParentFile();
+            track.localFile.delete();
+            track.localFile = null;
+            if (parent != null) parent.delete();
+        }
     }
 
     private static void fireAndForget(Mono<?> mono, String action) {

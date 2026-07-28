@@ -2,6 +2,8 @@ package com.arian.bot.music;
 
 import dev.arbjerg.lavalink.client.player.Track;
 
+import java.io.File;
+
 /**
  * Una entrada en la cola de reproducción. {@code resolved} es el audio real ya listo para sonar;
  * puede ser null si viene de una playlist y todavía no le toca (se resuelve justo antes de reproducirla).
@@ -13,6 +15,9 @@ public class QueuedTrack {
     public final long durationMs; // 0 si se desconoce
     public final String requestedBy;
     public volatile Track resolved;
+    // Archivo local descargado por yt-dlp que Lavalink reproduce directamente; se borra cuando
+    // la canción termina de sonar (ver TrackScheduler). Null hasta que se resuelve el audio.
+    public volatile File localFile;
 
     public QueuedTrack(String query, String title, String author, long durationMs, String requestedBy) {
         this.query = query;
