@@ -89,6 +89,36 @@ public class SpotifyResolver {
         return tracks;
     }
 
+    /** Búsqueda rápida de canciones en Spotify, usada para las sugerencias de autocompletar de /play. */
+    public static List<String> search(String query, int limit) {
+        List<String> results = new ArrayList<>();
+        if (query == null || query.isBlank()) return results;
+        String token = getAccessToken();
+        if (token == null) return results;
+
+        String url = "https://api.spotify.com/v1/search?type=track&limit=" + Math.min(limit, 25)
+                + "&q=" + java.net.URLEncoder.encode(query, StandardCharsets.UTF_8);
+        JSONObject json = getJson(url, token);
+        if (json == null) return results;
+        JSONObject tracksObj = json.optJSONObject("tracks");
+        JSONArray items = tracksObj != null ? tracksObj.optJSONArray("items") : null;
+        if (items == null) return results;
+
+        for (int i = 0; i < items.length(); i++) {
+            JSONObject track = items.getJSONObject(i);
+            String name = track.optString("name", null);
+            if (name == null || name.isBlank()) continue;
+            JSONArray artists = track.optJSONArray("artists");
+            String artist = (artists != null && artists.length() > 0)
+                    ? artists.getJSONObject(0).optString("name", "")
+                    : "";
+            String label = artist.isBlank() ? name : artist + " - " + name;
+            if (label.length() > 100) label = label.substring(0, 100);
+            results.add(label);
+        }
+        return results;
+    }
+
     private static QueuedTrack trackToQueuedTrack(JSONObject track, String requestedBy) {
         if (track == null) return null;
         String name = track.optString("name", null);

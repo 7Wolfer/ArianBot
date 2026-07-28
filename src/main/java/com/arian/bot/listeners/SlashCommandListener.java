@@ -15,6 +15,7 @@ import com.arian.bot.commands.social.HitCommand;
 import com.arian.bot.commands.social.HugCommand;
 import com.arian.bot.commands.social.KissCommand;
 import com.arian.bot.commands.social.PatCommand;
+import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 
@@ -38,6 +39,13 @@ public class SlashCommandListener extends ListenerAdapter {
             case "remove" -> RemoveCommand.handleSlash(event);
             case "priority" -> PriorityCommand.handleSlash(event);
             case "stop" -> StopCommand.handleSlash(event);
+        }
+    }
+
+    @Override
+    public void onCommandAutoCompleteInteraction(CommandAutoCompleteInteractionEvent event) {
+        if (event.getName().equals("play")) {
+            PlayCommand.handleAutoComplete(event);
         }
     }
 }

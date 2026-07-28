@@ -8,6 +8,7 @@ import com.arian.bot.music.YoutubeResolver;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.middleman.AudioChannel;
+import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 
@@ -41,6 +42,19 @@ public class PlayCommand {
         executor.submit(() -> {
             String result = handle(guildId, channel, jda, query, requestedBy);
             event.getHook().sendMessage(result).queue();
+        });
+    }
+
+    /** Sugerencias de autocompletar para la opción "cancion" del slash command, buscando en Spotify. */
+    public static void handleAutoComplete(CommandAutoCompleteInteractionEvent event) {
+        String typed = event.getFocusedOption().getValue().trim();
+        if (typed.isBlank()) {
+            event.replyChoiceStrings(List.of()).queue();
+            return;
+        }
+        executor.submit(() -> {
+            List<String> suggestions = SpotifyResolver.search(typed, 10);
+            event.replyChoiceStrings(suggestions).queue(v -> {}, err -> {});
         });
     }
 
