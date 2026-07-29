@@ -1,7 +1,6 @@
 package com.arian.bot.commands;
 
 import com.arian.bot.DataBaseManager;
-import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
@@ -10,9 +9,13 @@ import java.util.List;
 
 public class ChannelCommand {
 
+    // Solo el dueño de Arian puede decidir en qué canales habla, sin importar el servidor
+    // ni si es administrador ahí — no es una decisión que le corresponda a cada server.
+    private static final String OWNER_ID = "607845736016773131";
+
     public static void handlePrefix(MessageReceivedEvent event, String[] args) {
-        if (!event.getMember().hasPermission(Permission.ADMINISTRATOR)) {
-            event.getChannel().sendMessage("Este comando es solo para administradores.").queue();
+        if (!event.getAuthor().getId().equals(OWNER_ID)) {
+            event.getChannel().sendMessage("Este comando solo lo puede usar mi dueño.").queue();
             return;
         }
 
@@ -39,8 +42,8 @@ public class ChannelCommand {
     }
 
     public static void handleSlash(SlashCommandInteractionEvent event) {
-        if (!event.getMember().hasPermission(Permission.ADMINISTRATOR)) {
-            event.reply("Este comando es solo para administradores.").setEphemeral(true).queue();
+        if (!event.getUser().getId().equals(OWNER_ID)) {
+            event.reply("Este comando solo lo puede usar mi dueño.").setEphemeral(true).queue();
             return;
         }
 
