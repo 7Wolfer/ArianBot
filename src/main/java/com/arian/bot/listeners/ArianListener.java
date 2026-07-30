@@ -45,7 +45,9 @@ public class ArianListener extends ListenerAdapter {
         if (event.getAuthor().isBot()) return;
 
         // Ignorar mensajes con el prefijo de comandos de Arian
-        String content = event.getMessage().getContentRaw().trim();
+        // contentDisplay resuelve menciones (<@id>) a nombres legibles, para que
+        // tanto el historial como el propio Arian sepan a quién se refieren.
+        String content = event.getMessage().getContentDisplay().trim();
         if (content.startsWith(Main.PREFIX)) return;
 
         String channelId = event.getChannel().getId();
@@ -54,14 +56,25 @@ public class ArianListener extends ListenerAdapter {
         // Ignorar si el canal no está activado para Arian
         if (!DataBaseManager.isArianChannelEnabled(channelId)) return;
 
+        // Si el mensaje es una respuesta (reply) a otro mensaje, lo anotamos con
+        // "(responde a X)" para que el historial deje claro a quién iba dirigido
+        // — así Arian no confunde una respuesta a otra persona con algo dirigido a él.
+        var referencedMsg = event.getMessage().getMessageReference() != null
+                ? event.getMessage().getMessageReference().getMessage()
+                : null;
+        boolean esRespuestaArian = referencedMsg != null
+                && referencedMsg.getAuthor().equals(event.getJDA().getSelfUser());
+        String replyPrefix = referencedMsg != null
+                ? "(responde a " + (esRespuestaArian ? "Arian" : referencedMsg.getAuthor().getEffectiveName()) + ") "
+                : "";
+        String contentConContexto = replyPrefix + content;
+
         // Guardar el mensaje en el historial del canal
-        ChannelContext.addMessage(channelId, authorName, content);
+        ChannelContext.addMessage(channelId, authorName, contentConContexto);
 
         // Determinar si Arian debe intentar responder
         boolean mentionado = event.getMessage().getMentions().isMentioned(event.getJDA().getSelfUser());
         boolean nombreMencionado = content.toLowerCase().contains("arian");
-        boolean esRespuestaArian = event.getMessage().getMessageReference() != null
-                && isReplyToArian(event);
 
         boolean intentarResponder;
         if (esRespuestaArian) {
@@ -85,7 +98,8 @@ public class ArianListener extends ListenerAdapter {
         var message = event.getMessage();
         boolean responderConReply = mentionado || esRespuestaArian;
         executor.submit(() -> {
-            ArianResponse response = ArianAI.generateResponse(history, content, authorName, userMemory, serverMemory);
+            ArianResponse response = ArianAI.generateResponse(
+                    history, contentConContexto, authorName, userMemory, serverMemory, mentionado, esRespuestaArian);
             if (response == null) return;
 
             ChannelContext.markReplied(channelId);
@@ -109,20 +123,10 @@ public class ArianListener extends ListenerAdapter {
                 } else {
                     event.getChannel().sendMessage(response.text).queue();
                 }
+                // Guardar también lo que Arian dijo, para que él mismo tenga memoria
+                // de su parte de la conversación en los siguientes turnos.
+                ChannelContext.addMessage(channelId, "Arian", response.text);
             }
         });
-    }
-
-    /** Verifica si el mensaje es una respuesta a un mensaje enviado por Arian. */
-    private boolean isReplyToArian(MessageReceivedEvent event) {
-        try {
-            var ref = event.getMessage().getMessageReference();
-            if (ref == null) return false;
-            var referencedMsg = ref.getMessage();
-            if (referencedMsg == null) return false;
-            return referencedMsg.getAuthor().equals(event.getJDA().getSelfUser());
-        } catch (Exception e) {
-            return false;
-        }
     }
 }

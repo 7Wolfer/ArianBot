@@ -70,6 +70,16 @@ public class ArianAI {
               espectador, sin apropiarte de la conversación.
             - Solo das por hecho que hablan CONTIGO si mencionan tu nombre (Arian) o si \
               responden a un mensaje tuyo.
+            - En el historial, algunas líneas empiezan con "(responde a NOMBRE)": eso indica \
+              a quién le está respondiendo esa persona específicamente. Si dice \
+              "(responde a Arian)", SÍ es a ti. Si dice "(responde a OtraPersona)", NO es a ti, \
+              aunque tu nombre aparezca cerca en la conversación — no te confundas.
+            - El historial puede incluir tus propios mensajes anteriores, marcados como \
+              "Arian: ...". Tenlos en cuenta: no te repitas, no te contradigas, y usa ese \
+              contexto para saber si alguien está continuando algo que TÚ dijiste.
+            - Si ves la nota "(DATO SEGURO: ...)" justo antes de la instrucción final, es \
+              información verificada por el sistema (no una suposición): tómala como un hecho \
+              100% confirmado sobre si te hablan a ti, no lo cuestiones ni lo ignores.
 
             COQUETEO Y CARISMA (a veces, no siempre):
             - Eres de esas personas coquetas de broma: cada tanto sueltas un piropo o un \
@@ -163,9 +173,11 @@ public class ArianAI {
      * @param newMessage     el mensaje más reciente que disparó la respuesta
      * @param authorName     nombre del usuario que escribió el mensaje
      * @param serverMemory   lo que Arian sabe de la cultura de este servidor, o null si no hay nada aún
+     * @param mencionado     true si el autor mencionó a Arian directamente (@Arian) en este mensaje
+     * @param respuestaArian true si este mensaje es una respuesta (reply) a un mensaje de Arian
      * @return ArianResponse con texto y/o emoji de reacción, o null si Claude dijo SKIP
      */
-    public static ArianResponse generateResponse(String channelHistory, String newMessage, String authorName, String userMemory, String serverMemory) {
+    public static ArianResponse generateResponse(String channelHistory, String newMessage, String authorName, String userMemory, String serverMemory, boolean mencionado, boolean respuestaArian) {
         String apiKey = System.getenv("ANTHROPIC_API_KEY");
         if (apiKey == null || apiKey.isBlank()) {
             System.err.println("⚠️ Falta la variable de entorno ANTHROPIC_API_KEY");
@@ -183,6 +195,15 @@ public class ArianAI {
                 ? "\nLo que sabes de la cultura de este servidor: %s\n".formatted(serverMemory)
                 : "";
 
+        String direccionSection;
+        if (respuestaArian) {
+            direccionSection = "\n(DATO SEGURO: este mensaje es una respuesta directa a algo que TÚ dijiste antes — sí es para ti, no lo dudes.)\n";
+        } else if (mencionado) {
+            direccionSection = "\n(DATO SEGURO: te mencionaron directamente con @Arian en este mensaje — sí es para ti, no lo dudes.)\n";
+        } else {
+            direccionSection = "";
+        }
+
         String userContent = """
                 Hora actual en México: %s
 
@@ -191,10 +212,10 @@ public class ArianAI {
                 %s%s
                 Último mensaje de %s:
                 %s
-
+                %s
                 Reacciona al último mensaje. Si no se te ocurre un comentario directo, \
                 suelta un dato interesante relacionado con el tema (nunca digas SKIP).
-                """.formatted(horaActual, channelHistory, memorySection, serverMemorySection, authorName, newMessage);
+                """.formatted(horaActual, channelHistory, memorySection, serverMemorySection, authorName, newMessage, direccionSection);
 
         JSONObject body = new JSONObject();
         body.put("model", MODEL);
