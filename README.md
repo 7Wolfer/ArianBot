@@ -1,21 +1,29 @@
-# ArianBot
+# ArianBot 🐯
 
-A Discord bot for a furry community server, built with Java and JDA 5. ArianBot combines standard server utility commands with an AI-powered personality that participates in conversations on its own.
+A Discord bot for a furry community server, built with Java 21 and JDA 6. ArianBot combines a full music player, social interaction commands, a programming/neuroscience news digest, a video downloader, and an AI-driven personality (**Arian**) who participates in conversations on his own.
 
-## What it does
+## Overview
 
-ArianBot has two sides to it:
+ArianBot is really five features under one roof:
 
-**Regular commands** — social interaction commands like hugs, kisses, hits and pats, each with GIF embeds and persistent counters stored in SQLite. These work via both slash commands and a text prefix (`a!`).
+- **AI personality** — Arian reads the chat and joins in on his own, powered by Claude. He knows who he's talking to, remembers people and server culture over time, and adapts his tone.
+- **Music** — full queue-based player (YouTube search/links, Spotify tracks/playlists/albums) with autocomplete search, played through Lavalink.
+- **Social commands** — hug, kiss, hit, pat, each with a GIF embed, persistent counters, and a "return the favor" button.
+- **News digest** — a Tuesday/Friday roundup of programming and neuroscience news, summarized in Arian's voice.
+- **Downloader** — grabs videos from TikTok, Instagram, YouTube, etc. and drops them straight into the channel.
 
-**AI personality (Arian)** — a Claude-powered character that reads the chat and joins conversations spontaneously. He responds to mentions, replies, and occasionally chimes in on his own. He adapts his tone to each person, remembers things about server members over time, and knows the current time in Mexico City.
+Everything works through both slash commands (`/play`) and a text prefix (`a!play`).
 
 ## Requirements
 
 - Java 21
 - Maven
+- A running [Lavalink](https://github.com/lavalink-devs/Lavalink) server (default `ws://127.0.0.1:2333`) with its `local` file source enabled — required for music
+- [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) on `PATH` or at `~/.local/bin/yt-dlp` — required for music and downloads
+- [Deno](https://deno.com) at `~/.deno/bin/deno` — used by `yt-dlp` to solve YouTube's signature challenges
 - A Discord bot token
-- An Anthropic API key (for the AI personality)
+- An Anthropic API key — optional, but without it the AI personality and news summaries are silently disabled
+- Spotify API credentials — optional, only needed to resolve Spotify links and power `/play` autocomplete
 
 ## Setup
 
@@ -37,111 +45,157 @@ This produces a fat JAR at `target/ArianBot-1.0-SNAPSHOT.jar` with all dependenc
 **3. Run the bot**
 
 ```bash
-DISCORD_TOKEN=your_token ANTHROPIC_API_KEY=your_key java -jar target/ArianBot-1.0-SNAPSHOT.jar
+DISCORD_TOKEN=your_token LAVALINK_PASSWORD=your_lavalink_password java -jar target/ArianBot-1.0-SNAPSHOT.jar
 ```
 
-Both variables are required. The bot will not start without `DISCORD_TOKEN`, and the AI personality will be silently disabled without `ANTHROPIC_API_KEY`.
+### Environment variables
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `DISCORD_TOKEN` | Yes | Discord bot token — the bot won't start without it |
+| `LAVALINK_PASSWORD` | Yes | Password for the local Lavalink server — the bot won't start without it |
+| `ANTHROPIC_API_KEY` | No | Powers the AI personality and news summaries; both degrade gracefully without it |
+| `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | No | Enables resolving Spotify links and `/play` autocomplete |
+| `SPOTIFY_REFRESH_TOKEN` | No | Needed specifically to read Spotify **playlists** (Spotify requires a user-authorized token for that, not just client credentials) |
 
 ## Commands
 
-### Social commands
+### 🎵 Music
 
-All social commands are available as both slash commands (`/hug`) and prefix commands (`a!hug`). They generate a GIF embed and track interaction counts in the database.
+All available as `/slash` and `a!prefix` commands. Songs are resolved via `yt-dlp` and downloaded locally before being handed to Lavalink — this avoids YouTube's intermittent blocking of direct stream URLs. Spotify links are read for their real metadata and searched on YouTube. If Arian is already playing for people in another voice channel, he won't abandon them to follow a new request — he'll politely decline instead.
 
-| Command | Description |
-|---------|-------------|
-| `/hug @user` | Hug someone. Shows total hugs received. |
-| `/kiss @user` | Kiss someone. Tracks kisses between that specific pair. |
-| `/hit @user` | Hit someone. Tracks hits between that specific pair. |
-| `/pat @user` | Pat someone. Shows total pats received. |
-| `/ping` | Check if the bot is online and measure response time. |
+| Command | Aliases | Description |
+|---|---|---|
+| `/play cancion:<nombre o link>` | `a!play`, `a!p` | Queues a song, YouTube playlist, or Spotify track/playlist/album. Autocompletes song search via Spotify. |
+| `/skip` | `a!skip`, `a!s`, `a!next` | Skips the current track. |
+| `/pause` | `a!pause` | Pauses or resumes playback. |
+| `/queue` | `a!queue`, `a!q`, `a!cola` | Shows what's playing and what's queued. |
+| `/remove posicion:<n>` | `a!remove`, `a!rm` | Removes a track from the queue by its position. |
+| `/priority posicion:<n>` | `a!priority`, `a!prio` | Moves a queued track to play next. |
+| `/stop` | `a!stop` | Clears the queue and disconnects. |
 
-Hug, kiss, and hit commands include a return button so the target can respond in kind.
+Arian also leaves the voice channel on his own about 7 minutes after everyone else does.
 
-### AI channel management (admin only)
+### 🤗 Social
 
-| Command | Description |
-|---------|-------------|
-| `a!channel #channel` or `/channel #channel` | Toggle Arian on or off in that channel. |
-| `a!channel` or `/channel` | List all channels where Arian is active. |
-
-Arian only speaks in channels that have been explicitly enabled with this command. By default he is silent everywhere.
-
-### Owner-only commands
-
-These commands are locked to the bot owner's Discord user ID and are not visible to anyone else.
+Each generates a GIF embed and tracks interaction counts in the database. Hug, kiss, and hit include a return button so the target can respond in kind.
 
 | Command | Description |
-|---------|-------------|
-| `a!guilds` | List all servers the bot is currently in. |
-| `a!leave <server_id>` | Make the bot leave a specific server. |
+|---|---|
+| `/hug usuario:<@user>` (`a!hug`, `a!abrazo`) | Hug someone — tracks total hugs received. |
+| `/kiss usuario:<@user>` (`a!kiss`, `a!beso`) | Kiss someone — tracks kisses between that specific pair. |
+| `/hit usuario:<@user>` (`a!hit`, `a!golpe`) | Hit someone — tracks hits between that specific pair. |
+| `/pat usuario:<@user>` (`a!pat`) | Pat someone — tracks total pats received. |
+| `/ping` (`a!ping`) | Checks Arian's gateway latency. |
 
-## AI Personality
+### 📰 News digest
 
-Arian is a white tiger furro character powered by Claude Haiku. He is not a command-response assistant — he behaves more like a server member who happens to be reading the chat.
+Every **Tuesday and Friday at 10:00 (America/Mexico_City)**, Arian posts a 5-item digest to every server's configured news channel: 2 programming stories from Hacker News, 1 from arXiv (`cs.SE`/`cs.PL`/`cs.DC`), and 2 neuroscience items (1 PubMed, 1 arXiv `q-bio.NC`). Each item gets a short summary written in Arian's own voice, grounded strictly in the real title/abstract.
+
+| Command | Description |
+|---|---|
+| `/newschannel canal:<#channel>` (`a!newschannel`) | Sets the news channel for this server (admin only). No argument shows the current one. |
+
+### ⬇️ Download
+
+| Command | Description |
+|---|---|
+| `/download url:<link>` (`a!download`, `a!dl`, `a!descargar`) | Downloads a video (TikTok, Instagram, YouTube, etc.) via `yt-dlp` and uploads it to the channel, respecting Discord's file size limit. YouTube downloads can fail from a VPS IP without cookies configured. |
+
+### 🔒 Owner / admin only
+
+| Command | Who | Description |
+|---|---|---|
+| `/channel canal:<#channel>` (`a!channel`) | Bot owner only | Toggles whether Arian's AI personality is active in that channel. No argument lists active channels. Locked to the owner's Discord ID in every server, regardless of admin permissions there. |
+| `a!guilds` | Bot owner only | Lists every server Arian is currently in. |
+| `a!leave <server_id>` | Bot owner only | Makes Arian leave a specific server. |
+| `a!testnews` | Bot owner only | Forces the news digest to run immediately, for testing. |
+
+## AI personality (Arian)
+
+Arian is a white tiger furry character powered by Claude Haiku. He isn't a command-response assistant — he behaves like a server member who happens to be reading along, and only speaks in channels explicitly enabled with `/channel`.
 
 **When he speaks:**
-- Always when someone replies directly to one of his messages
-- With ~80% chance when someone mentions him (`@Arian`) or writes his name
-- With ~15% chance on any other message, subject to a 25-second cooldown per channel
+- Always, if someone replies directly to one of his own messages
+- ~80% of the time, if someone @mentions him or writes "Arian"
+- ~10% of the time on any other message, and only once a 25-second per-channel cooldown has passed
 
-**How he behaves:**
-- Adapts his tone to each person — calm with calm people, sharp with rude ones
-- Follows along with dark humor and absurd jokes instead of treating them seriously
-- Occasionally flirty in a lighthearted way, stops if the person seems uncomfortable
-- Knows Wolfer is his owner and will say so if asked
-- Uses the current Mexico City time when time or date comes up in conversation
-- If he has nothing relevant to say, shares a random curious fact instead of going silent
+**Staying on top of who's talking to whom:**
+Group chats are noisy — most messages aren't for him. Arian tracks Discord reply-chains (so a reply to someone else isn't mistaken for a reply to him), gets an explicit signal whenever he's genuinely mentioned or replied to, and keeps his own past messages in the conversation history so he doesn't lose the thread or contradict himself.
 
 **Memory:**
-Arian builds a short profile for each user over time. When someone shares something about themselves (a preference, a detail, something that happened), he stores it and uses it naturally in future conversations — without explicitly mentioning that he remembers.
+Arian builds a short profile of each user over time (preferences, personal details, running jokes) and a separate profile of each server's culture (in-jokes, slang, running gags) — storing both in SQLite and using them naturally without ever saying "I remember that."
 
-**Response format:**
-When Arian is mentioned or replied to, he responds using Discord's reply feature (the message is visually linked to the original) without sending a ping notification. Spontaneous messages are sent as plain channel messages.
+**Behavior:**
+- Adapts his tone: warm with calm people, sharp (once) with rude ones
+- Follows along with dark humor and absurd questions instead of taking them seriously
+- Occasionally flirty in a lighthearted, joking way
+- Knows Wolfer is his owner
+- Can react to messages with an emoji
+- Always has something to say — if nothing comes to mind, he shares a related fun fact instead of going silent
+
+All of his personality, tone, and behavior rules live in a single prompt in [`ArianAI.java`](src/main/java/com/arian/bot/ai/ArianAI.java) — edit it directly and restart the bot, no other files need to change.
 
 ## Database
 
-The bot uses SQLite (`arian.db`) stored in the working directory. It creates the following tables automatically on startup:
+SQLite (`arian.db`), created automatically on startup:
 
-- `pair_interactions` — tracks interactions between specific pairs of users (kiss, hit)
-- `received_interactions` — tracks total interactions received by a user (hug, pat)
-- `arian_channels` — stores which channels Arian is allowed to speak in
-- `user_memory` — stores Arian's memory profile for each server member
+| Table | Purpose |
+|---|---|
+| `pair_interactions` | Kiss/hit counts between specific pairs of users |
+| `received_interactions` | Total hugs/pats received per user |
+| `arian_channels` | Channels where Arian's AI personality is active |
+| `user_memory` | Arian's per-user memory profile |
+| `server_memory` | Arian's per-server "culture" memory |
+| `news_channel` | Each guild's configured news digest channel |
+| `posted_news` | Dedupe log of already-posted news items |
 
 ## Project structure
 
 ```
 src/main/java/com/arian/bot/
-├── Main.java                        # Entry point, JDA setup, slash command registration
-├── DataBaseManager.java             # SQLite connection and all database operations
-├── ai/
-│   ├── ArianAI.java                 # Anthropic API calls and response parsing
-│   ├── ArianListener.java           # Decides when Arian speaks and sends responses
-│   ├── ArianResponse.java           # Response model (text, emoji reaction, memory update)
-│   └── ChannelContext.java          # Per-channel message history and cooldown tracking
+├── Main.java                   # Entry point, JDA setup, slash command registration
+├── DataBaseManager.java        # SQLite connection and all database operations
+├── ai/                         # Arian's chat personality
+│   ├── ArianAI.java            # Claude API calls, system prompt, response parsing
+│   ├── ArianResponse.java      # Response model (text, emoji, memory updates)
+│   └── ChannelContext.java     # Per-channel rolling message history + cooldown
+├── music/                      # Playback engine
+│   ├── MusicManagers.java      # Lavalink client, per-guild TrackScheduler registry
+│   ├── TrackScheduler.java     # Queue, skip, pause, auto-advance, cleanup
+│   ├── YoutubeResolver.java    # yt-dlp search/download, local-file playback
+│   ├── SpotifyResolver.java    # Spotify metadata lookup + autocomplete search
+│   └── QueuedTrack.java        # A single queue entry
+├── news/                       # Programming/neuroscience digest
+│   ├── NewsScheduler.java      # Tue/Fri 10:00 CDMX scheduling
+│   ├── NewsFetcher.java        # Assembles the 5-item digest
+│   ├── HackerNewsSource.java / ArxivSource.java / PubMedSource.java
+│   ├── NewsSummarizer.java     # Claude-written summaries
+│   ├── NewsPoster.java         # Builds and posts embeds
+│   └── NewsItem.java
 ├── commands/
 │   ├── PingCommand.java
-│   ├── ChannelCommand.java          # Channel enable/disable (admin only)
-│   ├── OwnerCommand.java            # Guild list and leave (owner only)
-│   └── social/
-│       ├── SocialCommand.java       # Shared logic for all social commands
-│       ├── HugCommand.java
-│       ├── KissCommand.java
-│       ├── HitCommand.java
-│       └── PatCommand.java
+│   ├── ChannelCommand.java     # AI channel toggle (owner only)
+│   ├── DownloadCommand.java
+│   ├── NewsChannelCommand.java # News channel config (admin only)
+│   ├── OwnerCommand.java       # Guild list / leave / force news (owner only)
+│   ├── music/                  # PlayCommand, SkipCommand, PauseCommand, QueueCommand,
+│   │                           # RemoveCommand, PriorityCommand, StopCommand
+│   └── social/                 # SocialCommand (shared logic), HugCommand, KissCommand,
+│                                # HitCommand, PatCommand
 └── listeners/
     ├── SlashCommandListener.java
     ├── PrefixCommandListener.java
-    └── ButtonListener.java          # Handles return-action buttons on social commands
+    ├── ButtonListener.java     # Return-action buttons on social commands
+    ├── ArianListener.java      # Decides when Arian speaks and sends responses
+    └── VoiceIdleListener.java  # Auto-disconnect after 7 idle minutes
 ```
-
-## Changing Arian's personality
-
-All of Arian's personality, tone, interests, and behavior rules live in a single string in [`ArianAI.java`](src/main/java/com/arian/bot/ai/ArianAI.java), clearly marked with comments. You can edit it directly and restart the bot — no other files need to change.
 
 ## Tech stack
 
-- [JDA 5](https://github.com/discord-jda/JDA) — Discord API wrapper for Java
-- [Claude Haiku](https://www.anthropic.com) — AI model powering the personality
+- [JDA 6](https://github.com/discord-jda/JDA) — Discord API wrapper for Java
+- [Lavalink](https://github.com/lavalink-devs/Lavalink) — audio playback
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) — song/video resolution and download
+- [Claude Haiku](https://www.anthropic.com) — AI personality and news summaries
 - [SQLite](https://www.sqlite.org) via `sqlite-jdbc` — persistent storage
-- Maven with the Shade plugin for building a self-contained JAR
+- Maven with the Shade plugin — self-contained fat JAR
