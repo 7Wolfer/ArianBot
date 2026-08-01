@@ -34,6 +34,11 @@ public class ArianListener extends ListenerAdapter {
     // Cooldown mínimo entre respuestas de Arian en el mismo canal (en ms)
     private static final long COOLDOWN_MS = 25_000;
 
+    // IDs de Discord de los papás de Arian — se identifican por ID (no por nombre,
+    // que puede cambiar entre servidores) para que Arian nunca dude de quiénes son.
+    private static final String WOLFER_ID = "607845736016773131";
+    private static final String HANGUS_ID = "985683464936374345";
+
     private static final Random random = new Random();
 
     // Hilo separado para las llamadas a la API (evita bloquear el hilo de eventos de JDA)
@@ -95,11 +100,12 @@ public class ArianListener extends ListenerAdapter {
         String userMemory = DataBaseManager.getUserMemory(userId);
         String guildId = event.isFromGuild() ? event.getGuild().getId() : null;
         String serverMemory = guildId != null ? DataBaseManager.getServerMemory(guildId) : null;
+        String papi = userId.equals(WOLFER_ID) ? "Wolfer" : userId.equals(HANGUS_ID) ? "Hangus" : null;
         var message = event.getMessage();
         boolean responderConReply = mentionado || esRespuestaArian;
         executor.submit(() -> {
             ArianResponse response = ArianAI.generateResponse(
-                    history, contentConContexto, authorName, userMemory, serverMemory, mentionado, esRespuestaArian);
+                    history, contentConContexto, authorName, userMemory, serverMemory, mentionado, esRespuestaArian, papi);
             if (response == null) return;
 
             ChannelContext.markReplied(channelId);
