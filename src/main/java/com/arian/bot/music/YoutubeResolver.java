@@ -193,11 +193,10 @@ public class YoutubeResolver {
             cmd.add("--js-runtimes");
             cmd.add("deno:" + deno.getAbsolutePath());
         }
-        // Fuerza el cliente web, que con Deno resuelve los JS challenges de YouTube
-        // y genera un PO Token válido — necesario desde 2025 para descargar streams
-        // sin 403. El cliente web requiere la webpage completa, así que no se omite.
+        // Deja que yt-dlp elija el mejor cliente disponible; skip=webpage ahorra
+        // ~1s por canción y sigue funcionando con el cliente por defecto.
         cmd.add("--extractor-args");
-        cmd.add("youtube:player_client=web");
+        cmd.add("youtube:skip=webpage,configs");
         return cmd;
     }
 
