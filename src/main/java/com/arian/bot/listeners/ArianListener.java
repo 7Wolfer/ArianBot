@@ -34,10 +34,9 @@ public class ArianListener extends ListenerAdapter {
     // Cooldown mínimo entre respuestas de Arian en el mismo canal (en ms)
     private static final long COOLDOWN_MS = 25_000;
 
-    // IDs de Discord de los papás de Arian — se identifican por ID (no por nombre,
-    // que puede cambiar entre servidores) para que Arian nunca dude de quiénes son.
+    // ID de Discord de Wolfer (creador de Arian) — se identifica por ID para que
+    // Arian nunca dude de quién es, independientemente del nombre visible.
     private static final String WOLFER_ID = "607845736016773131";
-    private static final String HANGUS_ID = "985683464936374345";
 
     private static final Random random = new Random();
 
@@ -81,14 +80,16 @@ public class ArianListener extends ListenerAdapter {
         boolean mentionado = event.getMessage().getMentions().isMentioned(event.getJDA().getSelfUser());
         boolean nombreMencionado = content.toLowerCase().contains("arian");
 
+        // Si el mensaje es una respuesta a otra persona (no a Arian), no interrumpir al azar
+        boolean esRespuestaOtro = referencedMsg != null && !esRespuestaArian;
         boolean intentarResponder;
         if (esRespuestaArian) {
             intentarResponder = true;
         } else if (mentionado || nombreMencionado) {
             intentarResponder = random.nextDouble() < 0.80;
         } else {
-            // Solo intentar si el cooldown pasó
-            intentarResponder = ChannelContext.isCooldownOver(channelId, COOLDOWN_MS)
+            intentarResponder = !esRespuestaOtro
+                    && ChannelContext.isCooldownOver(channelId, COOLDOWN_MS)
                     && random.nextDouble() < BASE_CHANCE;
         }
 
@@ -100,7 +101,7 @@ public class ArianListener extends ListenerAdapter {
         String userMemory = DataBaseManager.getUserMemory(userId);
         String guildId = event.isFromGuild() ? event.getGuild().getId() : null;
         String serverMemory = guildId != null ? DataBaseManager.getServerMemory(guildId) : null;
-        String papi = userId.equals(WOLFER_ID) ? "Wolfer" : userId.equals(HANGUS_ID) ? "Hangus" : null;
+        String papi = userId.equals(WOLFER_ID) ? "Wolfer" : null;
         var message = event.getMessage();
         boolean responderConReply = mentionado || esRespuestaArian;
         executor.submit(() -> {
