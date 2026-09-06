@@ -121,7 +121,7 @@ public class YoutubeResolver {
             Path dir = Files.createTempDirectory("arian-music-");
             List<String> cmd = baseCommand();
             cmd.add("-f");
-            cmd.add("bestaudio");
+            cmd.add("bestaudio/best[acodec!=none][height<=480]/best");
             cmd.add("--no-playlist");
             cmd.add("-o");
             cmd.add(dir.resolve("%(id)s.%(ext)s").toString());
@@ -193,10 +193,11 @@ public class YoutubeResolver {
             cmd.add("--js-runtimes");
             cmd.add("deno:" + deno.getAbsolutePath());
         }
-        // Evita que yt-dlp baje el HTML completo del watch page y los configs extra;
-        // no se necesitan para resolver el audio, y ahorra ~1s por canción.
+        // Fuerza el cliente web, que con Deno resuelve los JS challenges de YouTube
+        // y genera un PO Token válido — necesario desde 2025 para descargar streams
+        // sin 403. El cliente web requiere la webpage completa, así que no se omite.
         cmd.add("--extractor-args");
-        cmd.add("youtube:skip=webpage,configs");
+        cmd.add("youtube:player_client=web");
         return cmd;
     }
 
